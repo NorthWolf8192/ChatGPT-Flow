@@ -29,9 +29,11 @@ final class GlassHooks {
     private final ThreadLocal<Boolean> buildingTopBar=new ThreadLocal<>();
     private final ThreadLocal<Boolean> buildingSettingsHeader=new ThreadLocal<>();
     private final ThreadLocal<Boolean> buildingSettingsSearch=new ThreadLocal<>();
+    private final ThreadLocal<Integer> buildingSidebarEdge=new ThreadLocal<>();
     private final FooterGradientRegistry footerGradients=new FooterGradientRegistry();
     private final FooterGradientRegistry topGradients=new FooterGradientRegistry();
     private final FooterGradientRegistry settingsGradients=new FooterGradientRegistry();
+    private final FooterGradientRegistry sidebarGradients=new FooterGradientRegistry();
     private final Map<Object,FooterFrostedRenderer> footerMaterials=new WeakHashMap<>();
     private final Map<Object,Integer> kinds=new WeakHashMap<>();
     private final Map<Object,ArrayList<Surface>> surfaces=new WeakHashMap<>();
@@ -225,7 +227,7 @@ final class GlassHooks {
                 {"kff0","c"},{"yau","d"},{"aq00","h"},{"fy91","f"},
                 {"nt51","invoke"},{"ot51","invoke"},{"pt51","invoke"},{"h3w0","a"},
                 {"xa01","e"},{"xa01","f"},{"tzt","invoke"},
-                {"t0u","a"},{"t0u","b"},{"t0u","c"},{"t0u","h"},
+                {"t0u","a"},{"t0u","b"},{"t0u","c"},{"t0u","h"},{"t0u","l"},
                 {"au00","W0"},{"nbf1","c"},{"kfi0","a"},{"nei0","a"},{"umt0","m"},{"umt0","n"},
                 {"nst","invoke"},{"bl7","q"},{"bu00","create"},{"bu00","update"},
                 {"dt51","invoke"},{"lqf0","J"},{"ppe","invoke"},{"grf1","e"},{"nqe1","a"},
@@ -252,6 +254,30 @@ final class GlassHooks {
             Object element=args[1];
             if(element.getClass().getName().equals("bu00"))settingsGradients.rememberElement(element);
             return args[0];
+        });
+        Object collectSidebar=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
+            if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
+            Object element=args[1];
+            if(element.getClass().getName().equals("bu00"))sidebarGradients.rememberElement(element);
+            return args[0];
+        });
+        // The sidebar footer wrapper builds J(2,8,...) outside its SidebarFooter children.
+        // Scope the exact construction rather than treating every MENU/Scrim as an edge.
+        Method sidebarFooter=Class.forName("tzt",false,loader).getDeclaredMethod("invoke",Object.class,Object.class);
+        sidebarFooter.setAccessible(true);
+        module.glassHook(sidebarFooter,chain->{
+            Integer previous=buildingSidebarEdge.get();buildingSidebarEdge.set(2);
+            try{return chain.proceed();}
+            finally{if(previous==null)buildingSidebarEdge.remove();else buildingSidebarEdge.set(previous);}
+        });
+        Method sidebarHeader=Class.forName("t0u",false,loader).getDeclaredMethod("l",Class.forName("yd01",false,loader),
+                Class.forName("tpb0",false,loader),function1,Class.forName("ijn0",false,loader),Class.forName("j3c1",false,loader),
+                modifier,Class.forName("a1q",false,loader),int.class);
+        sidebarHeader.setAccessible(true);
+        module.glassHook(sidebarHeader,chain->{
+            Integer previous=buildingSidebarEdge.get();buildingSidebarEdge.set(1);
+            try{return chain.proceed();}
+            finally{if(previous==null)buildingSidebarEdge.remove();else buildingSidebarEdge.set(previous);}
         });
         // nst creates the wrapper around mut.a (the composer). Its scroll gradient is a
         // sibling of the input layout, so input tags and IME visibility cannot identify it.
@@ -313,6 +339,12 @@ final class GlassHooks {
             if(Boolean.TRUE.equals(buildingTopBar.get())
                     && Integer.valueOf(1).equals(chain.getArg(0)) && Integer.valueOf(0).equals(chain.getArg(1)))
                 fold.invoke(result,0,collectTop);
+            Integer sidebarEdge=buildingSidebarEdge.get();
+            if(sidebarEdge!=null && sidebarEdge.equals(chain.getArg(0))
+                    && Integer.valueOf(sidebarEdge==2?8:0).equals(chain.getArg(1))){
+                fold.invoke(result,0,collectSidebar);
+                try{base=module.glassTheme(chain.getArg(3));}catch(Throwable error){module.glassError("Cannot read sidebar edge theme",error);}
+            }
             if(Boolean.TRUE.equals(buildingSettingsHeader.get()) && Integer.valueOf(1).equals(chain.getArg(0))){
                 fold.invoke(result,0,collectSettings);
                 try{base=module.glassTheme(chain.getArg(3));}catch(Throwable error){module.glassError("Cannot read settings header theme",error);}
@@ -323,12 +355,12 @@ final class GlassHooks {
         Method create=element.getDeclaredMethod("create");create.setAccessible(true);
         module.glassHook(create,chain->{
             Object node=chain.proceed();footerGradients.bind(chain.getThisObject(),node);
-            topGradients.bind(chain.getThisObject(),node);settingsGradients.bind(chain.getThisObject(),node);return node;
+            topGradients.bind(chain.getThisObject(),node);settingsGradients.bind(chain.getThisObject(),node);sidebarGradients.bind(chain.getThisObject(),node);return node;
         });
         Method update=element.getDeclaredMethod("update",Class.forName("f5i0",false,loader));update.setAccessible(true);
         module.glassHook(update,chain->{
             Object result=chain.proceed();footerGradients.bind(chain.getThisObject(),chain.getArg(0));
-            topGradients.bind(chain.getThisObject(),chain.getArg(0));settingsGradients.bind(chain.getThisObject(),chain.getArg(0));return result;
+            topGradients.bind(chain.getThisObject(),chain.getArg(0));settingsGradients.bind(chain.getThisObject(),chain.getArg(0));sidebarGradients.bind(chain.getThisObject(),chain.getArg(0));return result;
         });
     }
 
@@ -384,11 +416,12 @@ final class GlassHooks {
             Context c=current.get();
             Object node=chain.getThisObject();boolean footer=footerGradients.owns(node),topOwner=topGradients.owns(node);
             boolean settings=settingsGradients.owns(node) || c!=null && inSettingsScope(c);
+            boolean sidebar=sidebarGradients.owns(node);
             boolean top=topOwner && (settings || module.glassBottomScrimActive());
-            if(footer || topOwner || settings)track(node);
-            if(module.glassCollecting() && (footer || top || settings || c!=null && isChatBoundaryFade(c))){
+            if(footer || topOwner || settings || sidebar)track(node);
+            if(module.glassCollecting() && (footer || top || settings || sidebar || c!=null && isChatBoundaryFade(c))){
                 if(c!=null)track(c.node);
-                if((footer || top || settings) && module.footerFrostedConfigured()){
+                if((footer || top || settings || sidebar) && module.footerFrostedConfigured()){
                     try{
                         Object scope=chain.getArg(0);
                         if(c==null){
@@ -611,7 +644,7 @@ final class GlassHooks {
         changed();
     }
     void destroyed(){
-        footerGradients.clear();topGradients.clear();settingsGradients.clear();footerMaterials.clear();
+        footerGradients.clear();topGradients.clear();settingsGradients.clear();sidebarGradients.clear();footerMaterials.clear();
         for(NativePopup popup:popups.values())restorePopup(popup);
         popups.clear();surfaces.clear();kinds.clear();live.clear();backdrop=null;viewportWidth=viewportHeight=0;
     }

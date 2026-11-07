@@ -211,7 +211,7 @@ public final class MainActivity extends Activity {
     private void heading(LinearLayout parent,String title,String subtitle){
         LinearLayout brand=row();brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView word=label("CHATGPT  /  FLOW",11,muted,true);brand.addView(word,new LinearLayout.LayoutParams(0,-2,1));
-        TextView version=label("v1.0.14",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
+        TextView version=label("v1.0.15",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
         parent.addView(brand);space(parent,16);
         parent.addView(label(title,32,text,true));space(parent,6);parent.addView(label(subtitle,13,muted,false));space(parent,24);
     }
@@ -265,7 +265,7 @@ public final class MainActivity extends Activity {
         note(parent,"文字和图标保持清晰，聊天／工作指示块沿用原生滑动动画。");
         sectionLabel(parent,"边缘与键盘","shade");
         LinearLayout edges=card(parent);
-        toggle(edges,"shade","原阴影区域磨砂","聊天页与设置页的上下滚动边缘","footer_frosted",true);
+        toggle(edges,"shade","原阴影区域磨砂","聊天页、侧栏与设置页的滚动边缘","footer_frosted",true);
         description(edges,"共用上方模糊半径和底色浓度，随滚动渐入；关闭后保持去阴影效果。");divider(edges);
         toggle(edges,"keyboard","移除键盘黑色遮罩","实验功能","ime_compat",false);
         description(edges,"处理聊天页键盘遮罩，将流光延展到键盘下方。启用后收起并重新打开键盘。");
@@ -278,7 +278,7 @@ public final class MainActivity extends Activity {
         LinearLayout titleRow=row();titleRow.setGravity(Gravity.CENTER_VERTICAL);
         Icon mark=new Icon("flow",accent);mark.setPadding(dp(11),dp(11),dp(11),dp(11));mark.setBackground(round(accentSoft,17));titleRow.addView(mark,new LinearLayout.LayoutParams(dp(52),dp(52)));
         LinearLayout names=column();LinearLayout.LayoutParams namesLp=new LinearLayout.LayoutParams(0,-2,1);namesLp.leftMargin=dp(15);
-        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.14",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
+        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.15",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
         space(identity,18);identity.addView(label("循环彩虹渐变与磨砂材质，\n为你的聊天增添一点流动感。",13,muted,false));
         section(parent,"开始使用","只需三步");
         LinearLayout guide=card(parent);
@@ -287,7 +287,7 @@ public final class MainActivity extends Activity {
         step(guide,"03","重新打开应用","强行停止 ChatGPT，再重新打开");
         section(parent,"版本信息",null);
         LinearLayout versions=card(parent);
-        info(versions,"模块版本","1.0.14");divider(versions);
+        info(versions,"模块版本","1.0.15");divider(versions);
         info(versions,"适配 ChatGPT","1.2026.307");divider(versions);
         info(versions,"构建版本","2630709");divider(versions);
         info(versions,"框架接口","LSPosed API 102");
