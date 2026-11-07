@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ChatGPT 流光背景</string>
+    <string name="module_description">为 ChatGPT Android 添加流光彩色背景与可调磨砂材质，支持上下边缘磨砂和键盘遮罩优化。适配 ChatGPT 1.2026.307（2630709），需要支持 libxposed API 102 的 LSPosed。</string>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#8F6BEF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F5F5FB</item>
+        <item name="android:navigationBarColor">#F5F5FB</item>
+    </style>
+</resources>

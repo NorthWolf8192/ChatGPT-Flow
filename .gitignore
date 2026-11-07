@@ -1,0 +1,14 @@
+tools/
+classes/
+classes.jar
+dist/
+unsigned.apk
+package/build/
+package/assets/module-source.zip
+package/classes*.dex
+*.jks
+*.p12
+*.keystore
+*.idsig
+.env
+__pycache__/

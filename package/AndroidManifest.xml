@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="io.github.northwolf8192.chatgptflow">
+    <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="34" />
+    <queries><package android:name="com.openai.chatgpt" /><package android:name="app.chatgpt.flow" /></queries>
+    <application android:label="@string/app_name" android:description="@string/module_description" android:theme="@style/AppTheme" android:icon="@drawable/ic_flow" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false">
+        <activity android:name="app.chatgpt.flow.MainActivity" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+        </activity>
+        <provider android:name="app.chatgpt.flow.SettingsProvider" android:authorities="io.github.northwolf8192.chatgptflow.settings" android:exported="true" android:grantUriPermissions="false" />
+    </application>
+</manifest>

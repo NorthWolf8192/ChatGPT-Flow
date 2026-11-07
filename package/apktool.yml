@@ -1,0 +1,18 @@
+version: 2.12.1
+apkFileName: ChatGPT流光背景_1.0.14.apk
+usesFramework:
+  ids:
+  - 1
+sdkInfo:
+  minSdkVersion: 32
+  targetSdkVersion: 34
+packageInfo:
+  forcedPackageId: 127
+versionInfo:
+  versionCode: 15
+  versionName: 1.0.14
+doNotCompress:
+- arsc
+- dex
+- META-INF/xposed/java_init.list
+- META-INF/xposed/scope.list
