@@ -20,6 +20,12 @@ class PaletteTest {
    if(Palette.phase(1000,1000,speed)!=0||Palette.phase(1000+duration,1000,speed)!=0)throw new AssertionError("Loop");
    if(speed>1&&duration>=Palette.durationMs(speed-1))throw new AssertionError("Speed");
   }
+  int[] source=Palette.colors(0xff212121,100);
+  if(Palette.blurColors(source,0)!=source)throw new AssertionError("Zero-radius palette");
+  int[] blurred=Palette.blurColors(source,.1f);
+  if(blurred[0]!=blurred[blurred.length-1]||blurred[0]==source[0])throw new AssertionError("Smoothed loop seam");
+  for(int c:Palette.blurColors(new int[]{0xff473d30,0xff473d30},.2f))
+   if(c!=0xff473d30)throw new AssertionError("Constant color under blur");
   System.out.println("PASS: "+tested+" palette samples, dark/light text contrast, seamless loop and 100 speed settings");
  }
 }

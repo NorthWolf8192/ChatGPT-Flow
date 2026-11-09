@@ -34,6 +34,7 @@ public final class FlowModule extends XposedModule {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<Node> nodes = new ArrayList<>();
     private final RenderSession renderSession=new RenderSession();
+    private long animationTime=SystemClock.uptimeMillis();
     private boolean scheduled, observerRegistered, lifecycleRegistered, versionOk = true;
     private volatile boolean enabled = true;
     private volatile boolean glassEnabled = true;
@@ -366,7 +367,7 @@ public final class FlowModule extends XposedModule {
                     long size = paramsSize.getLong(params);
                     float width = Float.intBitsToFloat((int)(size >>> 32));
                     float height = Float.intBitsToFloat((int)size);
-                    long time=SystemClock.uptimeMillis();
+                    long time=animationTime;
                     renderer.drawAt(canvas, width, height, base, background, enabled && versionOk, speed, strength,time);
                     latestChatBase = base;
                     trackNode(scopeNode.get(scope));
@@ -394,8 +395,9 @@ public final class FlowModule extends XposedModule {
         @Override public void run() {
             scheduled = false;
             if (!renderSession.isResumed() || !versionOk) return;
+            animationTime=SystemClock.uptimeMillis();
             redraw();
-            if(glass!=null && glassFrameActive())glass.frame(SystemClock.uptimeMillis());
+            if(glass!=null && glassFrameActive())glass.frame(animationTime);
             if (imeWindow.isActive()) {
                 if (!imeCompatActive()) requestImeUpdate();
                 else imeWindow.redraw(latestChatBase, speed, strength);
@@ -415,6 +417,7 @@ public final class FlowModule extends XposedModule {
     }
     private void onResume(Activity a) {
         activity = new WeakReference<>(a); renderSession.resume(a);
+        animationTime=SystemClock.uptimeMillis();
         try {
             versionOk = a.getPackageManager().getPackageInfo("com.openai.chatgpt", 0).versionCode == TARGET_VERSION;
             if (!versionOk) log(5, TAG, "Build mismatch: adapter requires 2630709.");

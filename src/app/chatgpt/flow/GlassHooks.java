@@ -36,11 +36,11 @@ final class GlassHooks {
     private final FooterGradientRegistry sidebarGradients=new FooterGradientRegistry();
     private final Map<Object,FooterFrostedRenderer> footerMaterials=new WeakHashMap<>();
     private final Map<Object,Integer> kinds=new WeakHashMap<>();
-    private final Map<Object,ArrayList<Surface>> surfaces=new WeakHashMap<>();
+    private final GlassRenderer controlMaterial=new GlassRenderer();
     private final Map<Object,Object> tagCallbacks=new WeakHashMap<>();
     private final ArrayList<WeakReference<Object>> live=new ArrayList<>();
     private final Field nativeCanvas,nativePaint,layout,layoutOwner,modifiers,scopeDraw,scopeNode,drawParams,paramsSize;
-    private final Method parent,position,nodeCoordinator,fold,drawBehind,invalidate;
+    private final Method parent,position,nodeCoordinator,fold,drawBehind,invalidate,paintBlendMode;
     private final Object inspectTags,inspectChatRoot,inspectBottomScrim,inspectSettingsScope,unit;
     private final Class<?> function1;
     private Field tagField;
@@ -69,12 +69,6 @@ final class GlassHooks {
         Context previous;
         RectF injected;
     }
-    private static final class Surface {
-        GlassRenderer renderer;
-        RectF bounds;
-        long lastDraw;
-    }
-
     GlassHooks(FlowModule module,ClassLoader loader) throws Exception {
         this.module=module;this.loader=loader;
         Class<?> modifier=Class.forName("g5i0",false,loader);
@@ -87,6 +81,7 @@ final class GlassHooks {
         Class<?> function2=Class.forName("kotlin.jvm.functions.Function2",false,loader);
         unit=Class.forName("k771",false,loader).getField("a").get(null);
         nativeCanvas=field(wrapper,"a"); nativePaint=field(paint,"a");
+        paintBlendMode=Paint.class.getMethod("getBlendMode");
         layout=field(coordinator,"u"); modifiers=field(layoutNode,"N1");
         layoutOwner=field(layoutNode,"o");
         parent=layoutNode.getDeclaredMethod("F"); parent.setAccessible(true);
@@ -152,7 +147,7 @@ final class GlassHooks {
                 boolean handled=false;
                 try{
                     Context c=current.get();
-                    if(c!=null && module.glassCollecting()){
+                    if(c!=null && module.glassConfigured()){
                         RectF rect;float rx,ry;Object paintObject;
                         if(m.equals(circle)){
                             float radius=(Float)chain.getArg(0);long center=(Long)chain.getArg(1);
@@ -165,7 +160,7 @@ final class GlassHooks {
                             paintObject=chain.getArg(m.equals(round)?6:4);
                         }
                         Paint p=(Paint)nativePaint.get(paintObject);
-                        if(p.getStyle()==Paint.Style.FILL){
+                        if(isSolidFill(p)){
                             int kind=kind(c);
                             if(GlassPolicy.eligible(kind,rect.width(),rect.height(),c.width,c.height,module.glassDensity(),p.getColor(),Palette.isDark(base))){
                                 track(c.node);
@@ -424,21 +419,20 @@ final class GlassHooks {
                 if((footer || top || settings || sidebar) && module.footerFrostedConfigured()){
                     try{
                         Object scope=chain.getArg(0);
-                        if(c==null){
+                        if(c==null || c.node!=node){
                             c=new Context();c.node=node;c.coordinator=nodeCoordinator.invoke(null,node,4);
-                            Object params=drawParams.get(scopeDraw.get(scope));long size=paramsSize.getLong(params);
-                            c.width=hi(size);c.height=lo(size);
                         }
+                        Object params=drawParams.get(scopeDraw.get(scope));long size=paramsSize.getLong(params);
                         int edge=direction.getInt(node);Object scroll=metrics.invoke(node);
                         boolean reversed=(Boolean)reverse.invoke(scroll);
                         float distance=((Number)((edge==1)!=reversed?startDistance:endDistance).invoke(scroll)).floatValue();
-                        FooterFrostedGeometry geometry=FooterFrostedGeometry.create(c.height,module.glassDensity(),edge,extended.getBoolean(node),distance);
+                        FooterFrostedGeometry geometry=FooterFrostedGeometry.create(lo(size),module.glassDensity(),edge,extended.getBoolean(node),distance);
                         if(geometry!=null && geometry.alpha>0){
                             ensureBackdrop(c);locate(c);
                             FooterFrostedRenderer material=footerMaterials.get(node);
                             if(material==null){material=new FooterFrostedRenderer();footerMaterials.put(node,material);}
-                            material.draw(canvas(scope),geometry,c.width,c.x,c.y,backdrop,viewportWidth,viewportHeight,base,
-                                    module.glassSpeed(),module.glassStrength(),SystemClock.uptimeMillis(),module.glassDensity(),module.glassBlur(),module.glassTint());
+                            material.draw(canvas(scope),geometry,hi(size),c.x,c.y,backdrop,viewportWidth,viewportHeight,base,
+                                    module.glassSpeed(),module.glassStrength(),frameTime,module.glassDensity(),module.glassBlur(),module.glassTint());
                         }
                     }catch(Throwable error){module.glassError("Cannot draw frosted scroll edge region",error);}
                 }
@@ -498,7 +492,7 @@ final class GlassHooks {
                     RectF rect=new RectF();path.computeBounds(rect,true);
                     float density=module.glassDensity();
                     // Handle resized composer outlines as well as drawer panels; keep icon and text paths intact.
-                    if(p.getStyle()==Paint.Style.FILL && !path.isInverseFillType()
+                    if(isSolidFill(p) && !path.isInverseFillType()
                             && Boolean.TRUE.equals(convex.invoke(path))
                             && GlassPolicy.panelPathEligible(c.kind,rect.width(),rect.height(),c.width,c.height,density,p.getColor(),Palette.isDark(base))){
                         track(c.node);ensureBackdrop(c);
@@ -511,6 +505,14 @@ final class GlassHooks {
             }catch(Throwable error){module.glassError("Cannot draw shaped sidebar material",error);}
             return handled?null:chain.proceed();
         });
+    }
+
+    private boolean isSolidFill(Paint paint)throws Exception{
+        if(paint.getStyle()!=Paint.Style.FILL || paint.getShader()!=null || paint.getColorFilter()!=null)return false;
+        // Blend passes can erase, mask or reveal content even when their paint color looks like a background.
+        if(paint.getXfermode()==null)return true;
+        Object mode=paintBlendMode.invoke(paint);
+        return mode instanceof Enum<?> && ((Enum<?>)mode).name().equals("SRC_OVER");
     }
 
     private static Field field(Class<?> type,String name)throws Exception{Field f=type.getDeclaredField(name);f.setAccessible(true);return f;}
@@ -571,25 +573,10 @@ final class GlassHooks {
         return drawSurface(c,canvas,rect,rx,ry,color,selected,null);
     }
     private boolean drawSurface(Context c,Canvas canvas,RectF rect,float rx,float ry,int color,boolean selected,Path outline)throws Exception{
-        ArrayList<Surface> pool=surfaces.get(c.node);
-        if(pool==null){pool=new ArrayList<>();surfaces.put(c.node,pool);}
-        Surface s=null;
-        for(Surface candidate:pool){
-            RectF b=candidate.bounds;
-            if(b.left==rect.left && b.top==rect.top && b.right==rect.right && b.bottom==rect.bottom){s=candidate;break;}
-        }
-        // A draw node can emit both the tab track and its moving indicator. They must
-        // not share a RenderNode whose later recording would replace an earlier command.
-        if(s==null){
-            s=new Surface();s.bounds=new RectF(rect);
-            if(pool.size()>=12)pool.remove(0);
-            pool.add(s);
-        }
-        if(s.renderer==null)s.renderer=new GlassRenderer();
-        s.lastDraw=SystemClock.uptimeMillis();
-        return s.renderer.draw(canvas,rect,rx,ry,c.x,c.y,backdrop,viewportWidth,viewportHeight,base,color,
-                module.glassSpeed(),module.glassStrength(),frameTime,module.glassDensity(),module.glassBlur(),module.glassTint(),
-                selected || GlassPolicy.selected(c.kind,rect.width(),rect.height(),module.glassDensity(),color,Palette.isDark(base)),outline);
+        float density=module.glassDensity();
+        return controlMaterial.draw(canvas,rect,rx,ry,c.x,c.y,backdrop,viewportWidth,viewportHeight,base,color,
+                module.glassSpeed(),module.glassStrength(),frameTime,density,module.glassBlur(),module.glassTint(),
+                selected || GlassPolicy.selected(c.kind,rect.width(),rect.height(),density,color,Palette.isDark(base)),outline);
     }
     private boolean ready(int kind){return backdrop!=null && viewportWidth>0 && viewportHeight>0 && module.glassConfigured();}
     // Work mode and a cold-start drawer may be drawn before a conversation scaffold exists.
@@ -639,14 +626,14 @@ final class GlassHooks {
         for(NativePopup popup:popups.values())applyPopup(popup);
     }
     void foreground(){
-        kinds.clear();surfaces.clear();footerMaterials.clear();
+        kinds.clear();footerMaterials.clear();
         for(NativePopup popup:popups.values())if(popup.material!=null)popup.material.reset();
         changed();
     }
     void destroyed(){
         footerGradients.clear();topGradients.clear();settingsGradients.clear();sidebarGradients.clear();footerMaterials.clear();
         for(NativePopup popup:popups.values())restorePopup(popup);
-        popups.clear();surfaces.clear();kinds.clear();live.clear();backdrop=null;viewportWidth=viewportHeight=0;
+        popups.clear();kinds.clear();live.clear();backdrop=null;viewportWidth=viewportHeight=0;
     }
     float density(){return module.glassDensity();}
     boolean menuReady(){return ready(GlassPolicy.MENU);}

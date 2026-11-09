@@ -5,64 +5,74 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
-/** Blurs only a separate backdrop RenderNode; foreground text never enters that node. */
+/** Draws the smoothed flow gradient directly, with a separate layer for edge masks. */
 final class GlassRenderer {
-    private static Class<?> renderNodeClass, effectClass;
-    private static Method position, begin, end, setEffect, drawNode, makeBlur, clipBounds;
-    private static boolean initialized;
-    private final Object renderNode;
+    private static Constructor<?> edgeConstructor;
+    private static Method position, begin, end, drawNode, clipBounds;
+    private Object fadeNode;
+    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tint = new Paint(3);
-    private final Path clip = new Path();
+    private final Path path = new Path();
     private final RectF shape = new RectF();
-    private float oldRadius=-1;
 
-    GlassRenderer() throws Exception {
-        if (!initialized) {
-            renderNodeClass=Class.forName("android.graphics.RenderNode");
-            effectClass=Class.forName("android.graphics.RenderEffect");
+    private Object createFadeNode() throws Exception {
+        if (edgeConstructor==null) {
+            Class<?> renderNodeClass=Class.forName("android.graphics.RenderNode");
             position=renderNodeClass.getMethod("setPosition",int.class,int.class,int.class,int.class);
             begin=renderNodeClass.getMethod("beginRecording",int.class,int.class);
             end=renderNodeClass.getMethod("endRecording");
-            setEffect=renderNodeClass.getMethod("setRenderEffect",effectClass);
             clipBounds=renderNodeClass.getMethod("setClipToBounds",boolean.class);
             drawNode=Canvas.class.getMethod("drawRenderNode",renderNodeClass);
-            makeBlur=effectClass.getMethod("createBlurEffect",float.class,float.class,Shader.TileMode.class);
-            initialized=true;
+            edgeConstructor=renderNodeClass.getConstructor(String.class);
         }
-        renderNode=renderNodeClass.getConstructor(String.class).newInstance("ChatGPTFlowGlassBackdrop");
-        clipBounds.invoke(renderNode,true);
+        Object node=edgeConstructor.newInstance("ChatGPTFlowEdgeFade");
+        clipBounds.invoke(node,true);
+        return node;
+    }
+
+    boolean drawFaded(Canvas canvas,RectF bounds,Paint mask,float nodeX,float nodeY,
+                      FlowRenderer backdrop,float viewportWidth,float viewportHeight,int base,
+                      int speed,int strength,long frameTime,float density,int blurDp,int opacity)throws Exception{
+        if(!canvas.isHardwareAccelerated() || bounds.isEmpty() || backdrop==null)return false;
+        if(fadeNode==null)fadeNode=createFadeNode();
+        int left=(int)Math.floor(bounds.left),top=(int)Math.floor(bounds.top);
+        int right=(int)Math.ceil(bounds.right),bottom=(int)Math.ceil(bounds.bottom);
+        position.invoke(fadeNode,left,top,right,bottom);
+        Canvas recording=(Canvas)begin.invoke(fadeNode,right-left,bottom-top);
+        try{
+            recording.translate(-left,-top);
+            // Mask only the glass. Compose's canvas can already contain sibling content.
+            int save=recording.saveLayer(bounds,null,31);
+            try{
+                if(!draw(recording,bounds,0,0,nodeX,nodeY,backdrop,viewportWidth,viewportHeight,base,
+                        Palette.isDark(base)?0xff212121:0xffffffff,speed,strength,frameTime,density,blurDp,opacity,false))return false;
+                recording.drawRect(bounds,mask);
+            }finally{recording.restoreToCount(save);}
+        }finally{end.invoke(fadeNode);}
+        drawNode.invoke(canvas,fadeNode);
+        return true;
     }
 
     boolean draw(Canvas canvas, RectF rect, float rx, float ry, float nodeX, float nodeY,
                  FlowRenderer backdrop, float viewportWidth, float viewportHeight, int base,
                  int sourceColor, int speed, int strength, long frameTime, float density,
-                 int blurDp, int opacity, boolean selected) throws Exception {
+                 int blurDp, int opacity, boolean selected) {
         return draw(canvas,rect,rx,ry,nodeX,nodeY,backdrop,viewportWidth,viewportHeight,base,sourceColor,speed,strength,
                 frameTime,density,blurDp,opacity,selected,null);
     }
     boolean draw(Canvas canvas, RectF rect, float rx, float ry, float nodeX, float nodeY,
                  FlowRenderer backdrop, float viewportWidth, float viewportHeight, int base,
                  int sourceColor, int speed, int strength, long frameTime, float density,
-                 int blurDp, int opacity, boolean selected, Path outline) throws Exception {
-        if (!canvas.isHardwareAccelerated() || rect.isEmpty() || backdrop==null) return false;
+                 int blurDp, int opacity, boolean selected, Path outline) {
+        if (!canvas.isHardwareAccelerated() || rect.isEmpty() || backdrop==null
+                || viewportWidth<=0 || viewportHeight<=0) return false;
         float radius=Math.max(0,blurDp*density);
-        int padding=(int)Math.ceil(radius*2+2*density);
-        int w=Math.max(1,(int)Math.ceil(rect.width())+padding*2);
-        int h=Math.max(1,(int)Math.ceil(rect.height())+padding*2);
-        position.invoke(renderNode,0,0,w,h);
-        if (radius!=oldRadius) {
-            Object effect=radius>0 ? makeBlur.invoke(null,radius,radius,Shader.TileMode.CLAMP) : null;
-            setEffect.invoke(renderNode,effect); oldRadius=radius;
-        }
-        Canvas recording=(Canvas)begin.invoke(renderNode,w,h);
-        try {
-            recording.translate(padding-rect.left-nodeX,padding-rect.top-nodeY);
-            backdrop.drawRegion(recording,nodeX+rect.left-padding,nodeY+rect.top-padding,
-                    nodeX+rect.right+padding,nodeY+rect.bottom+padding,
-                    viewportWidth,viewportHeight,base,base,true,speed,strength,frameTime);
-        } finally { end.invoke(renderNode); }
+        Shader shader=backdrop.glassShader(viewportWidth,viewportHeight,base,strength,frameTime,speed,radius);
+        fill.setColor(shader==null?base:0xffffffff);
+        if(fill.getShader()!=shader)fill.setShader(shader);
 
         boolean dark=Palette.isDark(base);
         int r=(sourceColor>>>16)&255,g=(sourceColor>>>8)&255,b=sourceColor&255;
@@ -81,17 +91,20 @@ final class GlassRenderer {
                 tintColor=dark?0x004b3a70:0x00dccaff;
             }
         }
-        shape.set(rect); clip.reset();
-        if(outline==null)clip.addRoundRect(shape,rx,ry,Path.Direction.CW);else clip.set(outline);
+        // Use backdrop coordinates so every surface can use the same animated shader matrix.
+        shape.set(rect);shape.offset(nodeX,nodeY);
+        if(outline!=null)outline.offset(nodeX,nodeY,path);
         int save=canvas.save();
         try {
-            canvas.clipPath(clip);
-            canvas.save();
-            canvas.translate(rect.left-padding,rect.top-padding);
-            drawNode.invoke(canvas,renderNode);
-            canvas.restore();
+            canvas.translate(-nodeX,-nodeY);
             tint.setColor((alpha<<24)|tintColor);
-            if(outline==null)canvas.drawRoundRect(shape,rx,ry,tint);else canvas.drawPath(clip,tint);
+            if(outline==null){
+                canvas.drawRoundRect(shape,rx,ry,fill);
+                if(alpha>0)canvas.drawRoundRect(shape,rx,ry,tint);
+            }else{
+                canvas.drawPath(path,fill);
+                if(alpha>0)canvas.drawPath(path,tint);
+            }
         } finally { canvas.restoreToCount(save); }
         return true;
     }
