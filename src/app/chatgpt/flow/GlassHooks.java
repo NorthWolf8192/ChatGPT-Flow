@@ -19,10 +19,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Exact adapter for the drawing bridge in ChatGPT 2630709. */
+/** Adapter for the supported ChatGPT drawing bridges. */
 final class GlassHooks {
     private final FlowModule module;
     private final ClassLoader loader;
+    private final ComposeSymbols symbols;
     private final ThreadLocal<Context> current=new ThreadLocal<>();
     private final ThreadLocal<Boolean> buildingModeRow=new ThreadLocal<>();
     private final ThreadLocal<Boolean> buildingConversationFooter=new ThreadLocal<>();
@@ -39,8 +40,8 @@ final class GlassHooks {
     private final GlassRenderer controlMaterial=new GlassRenderer();
     private final Map<Object,Object> tagCallbacks=new WeakHashMap<>();
     private final ArrayList<WeakReference<Object>> live=new ArrayList<>();
-    private final Field nativeCanvas,nativePaint,layout,layoutOwner,modifiers,scopeDraw,scopeNode,drawParams,paramsSize;
-    private final Method parent,position,nodeCoordinator,fold,drawBehind,invalidate,paintBlendMode;
+    private final Field nativeCanvas,nativePaint,layout,layoutOwner,modifiers,scopeDraw,scopeNode,drawParams,paramsCanvas,paramsSize;
+    private final Method parent,position,nodeCoordinator,fold,invalidate,paintBlendMode;
     private final Object inspectTags,inspectChatRoot,inspectBottomScrim,inspectSettingsScope,unit;
     private final Class<?> function1;
     private Field tagField;
@@ -69,31 +70,30 @@ final class GlassHooks {
         Context previous;
         RectF injected;
     }
-    GlassHooks(FlowModule module,ClassLoader loader) throws Exception {
-        this.module=module;this.loader=loader;
-        Class<?> modifier=Class.forName("g5i0",false,loader);
-        Class<?> bridge=Class.forName("pib0",false,loader);
-        Class<?> wrapper=Class.forName("ol2",false,loader);
-        Class<?> paint=Class.forName("ew2",false,loader);
-        Class<?> coordinator=Class.forName("qwj0",false,loader);
-        Class<?> layoutNode=Class.forName("androidx.compose.ui.node.LayoutNode",false,loader);
-        function1=Class.forName("kotlin.jvm.functions.Function1",false,loader);
-        Class<?> function2=Class.forName("kotlin.jvm.functions.Function2",false,loader);
-        unit=Class.forName("k771",false,loader).getField("a").get(null);
+    GlassHooks(FlowModule module,ClassLoader loader,ComposeSymbols symbols) throws Exception {
+        this.module=module;this.loader=loader;this.symbols=symbols;
+        Class<?> modifier=symbols.type("g5i0");
+        Class<?> bridge=symbols.type("pib0");
+        Class<?> wrapper=symbols.type("ol2");
+        Class<?> paint=symbols.type("ew2");
+        Class<?> coordinator=symbols.type("qwj0");
+        Class<?> layoutNode=symbols.type("androidx.compose.ui.node.LayoutNode");
+        function1=symbols.type("kotlin.jvm.functions.Function1");
+        Class<?> function2=symbols.type("kotlin.jvm.functions.Function2");
+        unit=symbols.type("k771").getField("a").get(null);
         nativeCanvas=field(wrapper,"a"); nativePaint=field(paint,"a");
         paintBlendMode=Paint.class.getMethod("getBlendMode");
-        layout=field(coordinator,"u"); modifiers=field(layoutNode,"N1");
+        layout=field(coordinator,"u"); modifiers=symbols.field("androidx.compose.ui.node.LayoutNode","N1");
         layoutOwner=field(layoutNode,"o");
         parent=layoutNode.getDeclaredMethod("F"); parent.setAccessible(true);
         position=coordinator.getDeclaredMethod("R",long.class);position.setAccessible(true);
-        nodeCoordinator=Class.forName("kha0",false,loader).getDeclaredMethod("a0",Class.forName("y6x",false,loader),int.class);
+        nodeCoordinator=symbols.method("kha0","a0",symbols.type("y6x"),int.class);
         nodeCoordinator.setAccessible(true);
         fold=modifier.getMethod("a",Object.class,function2);
-        drawBehind=Class.forName("cja0",false,loader).getDeclaredMethod("x",modifier,function1);
-        drawBehind.setAccessible(true);
-        invalidate=Class.forName("bl7",false,loader).getDeclaredMethod("F",Class.forName("b600",false,loader));invalidate.setAccessible(true);
+        invalidate=symbols.method("bl7","F",symbols.type("b600"));invalidate.setAccessible(true);
         scopeDraw=field(bridge,"a");scopeNode=field(bridge,"b");
-        drawParams=field(Class.forName("akf",false,loader),"a");paramsSize=field(Class.forName("yjf",false,loader),"d");
+        drawParams=field(symbols.type("akf"),"a");paramsSize=field(symbols.type("yjf"),"d");
+        paramsCanvas=field(symbols.type("yjf"),"c");
         inspectTags=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
             int result=(Integer)args[0];Object element=args[1];
@@ -128,8 +128,8 @@ final class GlassHooks {
             return GlassPolicy.settingsTag((String)tagField.get(element));
         });
 
-        Method draw=bridge.getDeclaredMethod("b",Class.forName("wjf",false,loader),long.class,coordinator,
-                Class.forName("b600",false,loader),Class.forName("ec60",false,loader));draw.setAccessible(true);
+        Method draw=bridge.getDeclaredMethod("b",symbols.type("wjf"),long.class,coordinator,
+                symbols.type("b600"),symbols.type("ec60"));draw.setAccessible(true);
         module.glassHook(draw,chain->{
             if(!module.glassCollecting())return chain.proceed();
             Context c=new Context();c.previous=current.get();c.node=chain.getArg(3);c.coordinator=chain.getArg(2);
@@ -180,7 +180,7 @@ final class GlassHooks {
                 return handled?null:chain.proceed();
             });
         }
-        Method sentry=Class.forName("io.sentry.compose.e",false,loader).getDeclaredMethod("a",modifier,String.class);
+        Method sentry=symbols.method("io.sentry.compose.e","a",modifier,String.class);
         sentry.setAccessible(true);
         module.glassHook(sentry,chain->{
             Object original=chain.proceed();String tag=(String)chain.getArg(1);
@@ -211,12 +211,12 @@ final class GlassHooks {
             });
             tagCallbacks.put(original,callback);
             }
-            try{return drawBehind.invoke(null,original,callback);}
+            try{return module.appendDrawBehind(original,callback);}
             catch(Throwable error){module.glassError("Cannot attach glass composer button",error);return original;}
         });
-        for(Method m:Class.forName("akf",false,loader).getDeclaredMethods())module.glassDeopt(m);
+        for(Method m:symbols.type("akf").getDeclaredMethods())module.glassDeopt(m);
         for(Method m:bridge.getDeclaredMethods())if(m.getName().equals("a"))module.glassDeopt(m);
-        for(Method m:coordinator.getDeclaredMethods())if(m.getName().equals("e1"))module.glassDeopt(m);
+        for(Method m:coordinator.getDeclaredMethods())if(m.getName().equals(symbols.methodName("qwj0","e1")))module.glassDeopt(m);
         String[][] tagCallers={
                 {"nje","d"},{"z9q","invoke"},{"a181","H"},{"sz2","l"},
                 {"kff0","c"},{"yau","d"},{"aq00","h"},{"fy91","f"},
@@ -227,9 +227,15 @@ final class GlassHooks {
                 {"nst","invoke"},{"bl7","q"},{"bu00","create"},{"bu00","update"},
                 {"dt51","invoke"},{"lqf0","J"},{"ppe","invoke"},{"grf1","e"},{"nqe1","a"},
                 {"vof1","b"},{"p5y0","invoke"},{"r5y0","invoke"}};
-        for(String[] caller:tagCallers)
-            for(Method m:Class.forName(caller[0],false,loader).getDeclaredMethods())
-                if(m.getName().equals(caller[1]))module.glassDeopt(m);
+        for(String[] caller:tagCallers){
+            try{
+                String name=symbols.methodName(caller[0],caller[1]);
+                for(Method m:symbols.methodOwner(caller[0],caller[1]).getDeclaredMethods())
+                    if(m.getName().equals(name))module.glassDeopt(m);
+            }catch(ClassNotFoundException ignored){
+                // Deoptimization is an aid for the tag hooks, not required to install them.
+            }
+        }
         installExactSurfaceHooks(modifier,sentry);
         installPanelPathHook(wrapper,paint);
         installFooterGradientOwnership(modifier,function2);
@@ -238,36 +244,37 @@ final class GlassHooks {
     }
 
     private void installFooterGradientOwnership(Class<?> modifier,Class<?> function2)throws Exception{
+        Class<?> gradientElement=symbols.type("bu00");
         Object collect=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
             Object element=args[1];
-            if(element.getClass().getName().equals("bu00"))footerGradients.rememberElement(element);
+            if(element.getClass()==gradientElement)footerGradients.rememberElement(element);
             return args[0];
         });
         Object collectSettings=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
             Object element=args[1];
-            if(element.getClass().getName().equals("bu00"))settingsGradients.rememberElement(element);
+            if(element.getClass()==gradientElement)settingsGradients.rememberElement(element);
             return args[0];
         });
         Object collectSidebar=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
             Object element=args[1];
-            if(element.getClass().getName().equals("bu00"))sidebarGradients.rememberElement(element);
+            if(element.getClass()==gradientElement)sidebarGradients.rememberElement(element);
             return args[0];
         });
         // The sidebar footer wrapper builds J(2,8,...) outside its SidebarFooter children.
         // Scope the exact construction rather than treating every MENU/Scrim as an edge.
-        Method sidebarFooter=Class.forName("tzt",false,loader).getDeclaredMethod("invoke",Object.class,Object.class);
+        Method sidebarFooter=symbols.method("tzt","invoke",Object.class,Object.class);
         sidebarFooter.setAccessible(true);
         module.glassHook(sidebarFooter,chain->{
             Integer previous=buildingSidebarEdge.get();buildingSidebarEdge.set(2);
             try{return chain.proceed();}
             finally{if(previous==null)buildingSidebarEdge.remove();else buildingSidebarEdge.set(previous);}
         });
-        Method sidebarHeader=Class.forName("t0u",false,loader).getDeclaredMethod("l",Class.forName("yd01",false,loader),
-                Class.forName("tpb0",false,loader),function1,Class.forName("ijn0",false,loader),Class.forName("j3c1",false,loader),
-                modifier,Class.forName("a1q",false,loader),int.class);
+        Method sidebarHeader=symbols.method("t0u","l",symbols.type("yd01"),
+                symbols.type("tpb0"),function1,symbols.type("ijn0"),symbols.type("j3c1"),
+                modifier,symbols.type("a1q"),int.class);
         sidebarHeader.setAccessible(true);
         module.glassHook(sidebarHeader,chain->{
             Integer previous=buildingSidebarEdge.get();buildingSidebarEdge.set(1);
@@ -276,15 +283,15 @@ final class GlassHooks {
         });
         // nst creates the wrapper around mut.a (the composer). Its scroll gradient is a
         // sibling of the input layout, so input tags and IME visibility cannot identify it.
-        Method footer=Class.forName("nst",false,loader).getDeclaredMethod("invoke",Object.class,Object.class);
+        Method footer=symbols.method("nst","invoke",Object.class,Object.class);
         footer.setAccessible(true);
         module.glassHook(footer,chain->{
             Boolean previous=buildingConversationFooter.get();buildingConversationFooter.set(true);
             try{return chain.proceed();}
             finally{if(previous==null)buildingConversationFooter.remove();else buildingConversationFooter.set(previous);}
         });
-        Method gradient=Class.forName("bl7",false,loader).getDeclaredMethod("q",int.class,int.class,long.class,
-                Class.forName("a1q",false,loader),modifier,Class.forName("vox0",false,loader),boolean.class);
+        Method gradient=symbols.method("bl7","q",int.class,int.class,long.class,
+                symbols.type("a1q"),modifier,symbols.type("vox0"),boolean.class);
         gradient.setAccessible(true);
         module.glassHook(gradient,chain->{
             Object result=chain.proceed();
@@ -300,34 +307,34 @@ final class GlassHooks {
         Object collectTop=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
             Object element=args[1];
-            if(element.getClass().getName().equals("bu00"))topGradients.rememberElement(element);
+            if(element.getClass()==gradientElement)topGradients.rememberElement(element);
             return args[0];
         });
-        Method settingsSearch=Class.forName("grf1",false,loader).getDeclaredMethod("e",Class.forName("x6z0",false,loader),
-                Class.forName("vox0",false,loader),function1,Class.forName("kotlin.jvm.functions.Function0",false,loader),
-                modifier,Class.forName("a1q",false,loader),int.class);
+        Method settingsSearch=symbols.method("grf1","e",symbols.type("x6z0"),
+                symbols.type("vox0"),function1,symbols.type("kotlin.jvm.functions.Function0"),
+                modifier,symbols.type("a1q"),int.class);
         settingsSearch.setAccessible(true);
         module.glassHook(settingsSearch,chain->{
             Boolean previous=buildingSettingsSearch.get();buildingSettingsSearch.set(true);
             try{return chain.proceed();}
             finally{if(previous==null)buildingSettingsSearch.remove();else buildingSettingsSearch.set(previous);}
         });
-        Method settingsHeader=Class.forName("ppe",false,loader).getDeclaredMethod("invoke",Object.class,Object.class,Object.class,Object.class);
+        Method settingsHeader=symbols.method("ppe","invoke",Object.class,Object.class,Object.class,Object.class);
         settingsHeader.setAccessible(true);
         module.glassHook(settingsHeader,chain->{
             Boolean previous=buildingSettingsHeader.get();buildingSettingsHeader.set(true);
             try{return chain.proceed();}
             finally{if(previous==null)buildingSettingsHeader.remove();else buildingSettingsHeader.set(previous);}
         });
-        Method topBar=Class.forName("dt51",false,loader).getDeclaredMethod("invoke",Object.class,Object.class);
+        Method topBar=symbols.method("dt51","invoke",Object.class,Object.class);
         topBar.setAccessible(true);
         module.glassHook(topBar,chain->{
             Boolean previous=buildingTopBar.get();buildingTopBar.set(true);
             try{return chain.proceed();}
             finally{if(previous==null)buildingTopBar.remove();else buildingTopBar.set(previous);}
         });
-        Method topGradient=Class.forName("lqf0",false,loader).getDeclaredMethod("J",int.class,int.class,long.class,
-                Class.forName("a1q",false,loader),modifier,Class.forName("vox0",false,loader),boolean.class);
+        Method topGradient=symbols.method("lqf0","J",int.class,int.class,long.class,
+                symbols.type("a1q"),modifier,symbols.type("vox0"),boolean.class);
         topGradient.setAccessible(true);
         module.glassHook(topGradient,chain->{
             Object result=chain.proceed();
@@ -346,13 +353,12 @@ final class GlassHooks {
             }
             return result;
         });
-        Class<?> element=Class.forName("bu00",false,loader);
-        Method create=element.getDeclaredMethod("create");create.setAccessible(true);
+        Method create=gradientElement.getDeclaredMethod("create");create.setAccessible(true);
         module.glassHook(create,chain->{
             Object node=chain.proceed();footerGradients.bind(chain.getThisObject(),node);
             topGradients.bind(chain.getThisObject(),node);settingsGradients.bind(chain.getThisObject(),node);sidebarGradients.bind(chain.getThisObject(),node);return node;
         });
-        Method update=element.getDeclaredMethod("update",Class.forName("f5i0",false,loader));update.setAccessible(true);
+        Method update=gradientElement.getDeclaredMethod("update",symbols.type("f5i0"));update.setAccessible(true);
         module.glassHook(update,chain->{
             Object result=chain.proceed();footerGradients.bind(chain.getThisObject(),chain.getArg(0));
             topGradients.bind(chain.getThisObject(),chain.getArg(0));settingsGradients.bind(chain.getThisObject(),chain.getArg(0));sidebarGradients.bind(chain.getThisObject(),chain.getArg(0));return result;
@@ -362,7 +368,7 @@ final class GlassHooks {
     /** Target the sidebar's own content modifier, including its independent shaped background. */
     private void installExactSurfaceHooks(Class<?> modifier,Method sentry)throws Exception{
         Method sidebar=null;
-        for(Method m:Class.forName("t0u",false,loader).getDeclaredMethods()){
+        for(Method m:symbols.type("t0u").getDeclaredMethods()){
             Class<?>[] p=m.getParameterTypes();
             if(m.getName().equals("c") && p.length==11 && p[8]==modifier)sidebar=m;
         }
@@ -377,15 +383,15 @@ final class GlassHooks {
         });
         // Style the actual animated indicator created inside p5y0, preserving its Animatable
         // offset and animated width. A static background on the selected tab causes a jump.
-        Method row=Class.forName("p5y0",false,loader).getDeclaredMethod("invoke",Object.class,Object.class,Object.class);
+        Method row=symbols.method("p5y0","invoke",Object.class,Object.class,Object.class);
         row.setAccessible(true);
         module.glassHook(row,chain->{
             Boolean previous=buildingModeRow.get();buildingModeRow.set(true);
             try{return chain.proceed();}
             finally{if(previous==null)buildingModeRow.remove();else buildingModeRow.set(previous);}
         });
-        Method indicator=Class.forName("vb6",false,loader).getDeclaredMethod("z",int.class,
-                Class.forName("p550",false,loader),modifier,modifier,boolean.class);
+        Method indicator=symbols.method("vb6","z",int.class,
+                symbols.type("p550"),modifier,modifier,boolean.class);
         indicator.setAccessible(true);
         module.glassHook(indicator,chain->{
             if(!Boolean.TRUE.equals(buildingModeRow.get())
@@ -400,11 +406,11 @@ final class GlassHooks {
 
     private void installComposerFadeHook(Class<?> bridge)throws Exception{
         Method content=bridge.getDeclaredMethod("a");content.setAccessible(true);
-        Class<?> fadeType=Class.forName("au00",false,loader);
-        Method fade=fadeType.getDeclaredMethod("W0",bridge);fade.setAccessible(true);
+        Class<?> fadeType=symbols.type("au00");
+        Method fade=symbols.method("au00","W0",bridge);fade.setAccessible(true);
         Field direction=field(fadeType,"o"),extended=field(fadeType,"q");
         Method metrics=fadeType.getDeclaredMethod("w1");metrics.setAccessible(true);
-        Class<?> metricType=Class.forName("vox0",false,loader);
+        Class<?> metricType=symbols.type("vox0");
         Method reverse=metricType.getMethod("a"),startDistance=metricType.getMethod("c"),endDistance=metricType.getMethod("d");
         reverse.setAccessible(true);startDistance.setAccessible(true);endDistance.setAccessible(true);
         module.glassHook(fade,chain->{
@@ -477,7 +483,7 @@ final class GlassHooks {
     }
 
     private void installPanelPathHook(Class<?> wrapper,Class<?> paint)throws Exception{
-        Class<?> pathType=Class.forName("sw2",false,loader);
+        Class<?> pathType=symbols.type("sw2");
         Field nativePath=field(pathType,"a");
         Method convex=Path.class.getMethod("isConvex");
         Method draw=wrapper.getDeclaredMethod("o",pathType,paint);
@@ -525,7 +531,7 @@ final class GlassHooks {
     private static float lo(long packed){return Float.intBitsToFloat((int)packed);}
     private Canvas canvas(Object scope)throws Exception{
         Object params=drawParams.get(scopeDraw.get(scope));
-        Field f=field(params.getClass(),"c");return (Canvas)nativeCanvas.get(f.get(params));
+        return (Canvas)nativeCanvas.get(paramsCanvas.get(params));
     }
     private int kind(Context c)throws Exception{
         if(c.kind>=0)return c.kind;

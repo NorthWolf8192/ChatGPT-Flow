@@ -24,10 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
 
-/** Adapter verified against com.openai.chatgpt 1.2026.307 / 2630709. */
+/** Adapter for the supported builds of com.openai.chatgpt 1.2026.307. */
 public final class FlowModule extends XposedModule {
     private static final String TAG = "ChatGPTFlow";
-    private static final int TARGET_VERSION = 2630709;
     private static final String CHAT_TAG = "ConversationScreenContentScaffold";
     private final AtomicBoolean installed = new AtomicBoolean();
     private final java.util.Set<String> errorsLogged = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
@@ -49,7 +48,9 @@ public final class FlowModule extends XposedModule {
     private ViewTreeObserver.OnGlobalLayoutListener imeListener;
     private volatile int speed = 55, strength = 70;
     private WeakReference<Activity> activity = new WeakReference<>(null);
-    private Method drawBehind, fold, invalidate, themeColors;
+    private ComposeSymbols symbols;
+    private DrawBehindAdapter drawBehind;
+    private Method fold, invalidate, themeColors;
     private Object foldCallback, unit;
     private Class<?> function1;
     private Field scopeDraw, scopeNode, drawParams, paramsCanvas, paramsSize, themeGroup, themeBackground;
@@ -68,25 +69,22 @@ public final class FlowModule extends XposedModule {
         if (!"com.openai.chatgpt".equals(param.getPackageName()) || !installed.compareAndSet(false, true)) return;
         try {
             ClassLoader loader = param.getClassLoader();
-            Class<?> modifier = Class.forName("g5i0", false, loader);
-            function1 = Class.forName("kotlin.jvm.functions.Function1", false, loader);
-            Class<?> function2 = Class.forName("kotlin.jvm.functions.Function2", false, loader);
-            unit = Class.forName("k771", false, loader).getField("a").get(null);
-            drawBehind = Class.forName("cja0", false, loader).getDeclaredMethod("x", modifier, function1);
-            drawBehind.setAccessible(true);
+            symbols = ComposeSymbols.select(loader);
+            Class<?> modifier = symbols.type("g5i0");
+            function1 = symbols.type("kotlin.jvm.functions.Function1");
+            Class<?> function2 = symbols.type("kotlin.jvm.functions.Function2");
+            unit = symbols.type("k771").getField("a").get(null);
+            drawBehind = DrawBehindAdapter.resolve(symbols, modifier, function1);
             fold = modifier.getMethod("a", Object.class, function2);
             fold.setAccessible(true);
-            invalidate = Class.forName("bl7", false, loader).getDeclaredMethod("F", Class.forName("b600", false, loader));
+            invalidate = symbols.method("bl7", "F", symbols.type("b600"));
             invalidate.setAccessible(true);
-            Class<?> scope = Class.forName("pib0", false, loader);
-            scopeDraw = accessible(scope, "a"); scopeNode = accessible(scope, "b");
-            drawParams = accessible(Class.forName("akf", false, loader), "a");
-            Class<?> params = Class.forName("yjf", false, loader);
-            paramsCanvas = accessible(params, "c"); paramsSize = accessible(params, "d");
-            Class<?> modifierNode = Class.forName("f5i0", false, loader);
-            nodeOwner = accessible(modifierNode, "a");
-            nodeAttached = accessible(modifierNode, "n");
-            themeColors = Class.forName("x3t0", false, loader).getDeclaredMethod("c", Class.forName("a1q", false, loader));
+            scopeDraw = symbols.field("pib0", "a"); scopeNode = symbols.field("pib0", "b");
+            drawParams = symbols.field("akf", "a");
+            paramsCanvas = symbols.field("yjf", "c"); paramsSize = symbols.field("yjf", "d");
+            nodeOwner = symbols.field("f5i0", "a");
+            nodeAttached = symbols.field("f5i0", "n");
+            themeColors = symbols.method("x3t0", "c", symbols.type("a1q"));
             themeColors.setAccessible(true);
             themeGroup = accessible(themeColors.getReturnType(), "c");
             themeBackground = accessible(themeGroup.getType(), "g");
@@ -95,7 +93,7 @@ public final class FlowModule extends XposedModule {
                 return Boolean.TRUE.equals(args[0]) || hasChatTag(args[1]);
             });
             Method scaffold = null;
-            for (Method m : Class.forName("isv0", false, loader).getDeclaredMethods()) {
+            for (Method m : symbols.type("isv0").getDeclaredMethods()) {
                 Class<?>[] p = m.getParameterTypes();
                 if (m.getName().equals("a") && p.length == 13 && p[0] == modifier && p[5] == long.class) scaffold = m;
             }
@@ -108,11 +106,11 @@ public final class FlowModule extends XposedModule {
                 return args == null ? chain.proceed() : chain.proceed(args);
             });
             // Prevent an already compiled conversation caller from bypassing the hooked scaffold.
-            for (Method m : Class.forName("mut", false, loader).getDeclaredMethods()) {
+            for (Method m : symbols.type("mut").getDeclaredMethods()) {
                 if (m.getName().equals("f") && m.getParameterTypes().length == 35) deoptimize(m);
             }
-            installImeScrimHooks(loader, modifier);
-            try { glass=new GlassHooks(this,loader); }
+            installImeScrimHooks(modifier);
+            try { glass=new GlassHooks(this,loader,symbols); }
             catch(Throwable error) { logOnce("Glass adapter unavailable",error); }
             Method resume = Activity.class.getDeclaredMethod("onResume");
             hook(resume).intercept(chain -> {
@@ -132,7 +130,7 @@ public final class FlowModule extends XposedModule {
                 return chain.proceed();
             });
             installLifecycleRecovery(loader);
-            log(4, TAG, "ChatGPT 1.2026.307 conversation background hook installed (API 102).");
+            log(4, TAG, "ChatGPT Flow 1.0.19 initialized for ChatGPT build " + symbols.build + " (API 102).");
         } catch (Throwable error) {
             log(6, TAG, "Unsupported ChatGPT build or missing Compose adapter", error);
         }
@@ -203,11 +201,10 @@ public final class FlowModule extends XposedModule {
         },delay);
     }
 
-    private void installImeScrimHooks(ClassLoader loader, Class<?> modifier) {
+    private void installImeScrimHooks(Class<?> modifier) {
         try {
-            Class<?> composer = Class.forName("a1q", false, loader);
-            Method overlay = Class.forName("qod1", false, loader).getDeclaredMethod(
-                    "f", modifier, float.class, composer, int.class, int.class);
+            Class<?> composer = symbols.type("a1q");
+            Method overlay = symbols.method("qod1", "f", modifier, float.class, composer, int.class, int.class);
             overlay.setAccessible(true);
             hook(overlay).intercept(chain -> {
                 if (!imeCompatActive()) return chain.proceed();
@@ -217,8 +214,8 @@ public final class FlowModule extends XposedModule {
                 args[4] = (Integer)args[4] & ~2;
                 return chain.proceed(args);
             });
-            Class<?> function0 = Class.forName("kotlin.jvm.functions.Function0", false, loader);
-            Class<?> bottomSheet = Class.forName("xwa", false, loader);
+            Class<?> function0 = symbols.type("kotlin.jvm.functions.Function0");
+            Class<?> bottomSheet = symbols.type("xwa");
             Method peek = bottomSheet.getDeclaredMethod("i", int.class, long.class,
                     composer, function0, boolean.class, boolean.class);
             peek.setAccessible(true);
@@ -229,7 +226,7 @@ public final class FlowModule extends XposedModule {
                 args[0] = ((Integer)args[0] & ~14) | 4;
                 return chain.proceed(args);
             });
-            for (Method m : Class.forName("qod1", false, loader).getDeclaredMethods()) {
+            for (Method m : symbols.type("qod1").getDeclaredMethods()) {
                 if (m.getName().equals("d")) deoptimize(m);
             }
             for (Method m : bottomSheet.getDeclaredMethods()) if (m.getName().equals("h")) deoptimize(m);
@@ -311,7 +308,7 @@ public final class FlowModule extends XposedModule {
             callback.base = (int) (packed >>> 32);
         }
         Object[] args = chain.getArgs().toArray();
-        args[0] = drawBehind.invoke(null, original, callback.proxy);
+        args[0] = appendDrawBehind(original, callback.proxy);
         args[5] = 0L;
         args[11] = ((Integer) args[11] & ~196608) | 131072;
         args[12] = defaults & ~32;
@@ -419,8 +416,9 @@ public final class FlowModule extends XposedModule {
         activity = new WeakReference<>(a); renderSession.resume(a);
         animationTime=SystemClock.uptimeMillis();
         try {
-            versionOk = a.getPackageManager().getPackageInfo("com.openai.chatgpt", 0).versionCode == TARGET_VERSION;
-            if (!versionOk) log(5, TAG, "Build mismatch: adapter requires 2630709.");
+            int actual = a.getPackageManager().getPackageInfo("com.openai.chatgpt", 0).versionCode;
+            versionOk = actual == symbols.build;
+            if (!versionOk) log(5, TAG, "ChatGPT build " + actual + " does not match Compose mapping " + symbols.build);
             Context context = a.getApplicationContext();
             readSettings(context);
             if (!observerRegistered) {
@@ -471,6 +469,9 @@ public final class FlowModule extends XposedModule {
     }
 
     void glassHook(Method method,io.github.libxposed.api.XposedInterface.Hooker callback) { hook(method).intercept(callback); }
+    Object appendDrawBehind(Object original, Object callback) throws ReflectiveOperationException {
+        return drawBehind.append(original, callback);
+    }
     void glassDeopt(Method method) { deoptimize(method); }
     void glassError(String message,Throwable error) { logOnce(message,error); }
     boolean glassConfigured() { return renderSession.visualsAllowed(enabled,glassEnabled,versionOk); }
