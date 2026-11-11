@@ -6,7 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Compose names differ between the two APKs labeled 1.2026.307. */
+/** Compose names differ between APK builds labeled 1.2026.307. */
 final class ComposeSymbols {
     private static final Map<String, String> BUILD_2630717 = aliases(
             "g5i0 u2i0", "a1q c0q", "k771 r971", "pib0 lhb0", "akf kjf", "yjf jjf",
@@ -27,6 +27,25 @@ final class ComposeSymbols {
             "aq00#h bia0#n", "fy91#f r7u#d", "nbf1 cif1", "nqe1 tve1", "vof1#b qsf1#p",
             "umt0#m eo2#A", "umt0#n eo2#B");
 
+    private static final Map<String, String> BUILD_2630718 = aliases(
+            "g5i0 i2i0", "a1q a0q", "k771 aa71", "pib0 rgb0", "akf djf", "yjf cjf",
+            "f5i0 h2i0", "b600 u400", "wjf ajf", "ec60 k960", "qwj0 jtj0",
+            "ol2 il2", "ew2 rv2", "sw2 ew2", "y6x k6x", "p550 y250", "vox0 vpx0",
+            "x3t0 h5t0", "isv0#a fo00#k", "mut wtt", "cja0#x p4t#w",
+            "o500 h400", "io.sentry.compose.e io.sentry.compose.d",
+            "bl7#F q381#j0", "bl7#q t1g#p", "kha0#a0 yso#u0",
+            "qwj0#e1 jtj0#d1", "androidx.compose.ui.node.LayoutNode.N1 P1",
+            "qod1#f d3e1#h", "qod1#d d3e1#f", "xwa wwa",
+            "t0u b0u", "tzt dzt", "yd01 eg01", "tpb0 snb0", "ijn0 xjn0", "j3c1 r5c1",
+            "nst urt", "dt51 hw51", "lqf0#J fo00#w", "ppe pu1", "grf1#e jwf1#a", "x6z0 y7z0",
+            "bu00 ks00", "au00 js00", "au00#W0 js00#X0",
+            "vb6 ob6", "p5y0 b6y0", "r5y0 d6y0",
+            "nje#d mbd1#b", "z9q q8q", "a181#H jq41#d", "sz2#l i9x0#x",
+            "kff0 fdf0", "yau mau", "nt51 rw51", "ot51 sw51", "pt51 tw51",
+            "h3w0#a kaz0#b", "xa01 yc01", "kfi0 fci0", "nei0 kbi0",
+            "aq00#h jot0#e", "fy91#f q381#d", "nbf1#c ajf1#a", "nqe1 qve1",
+            "vof1#b zsf1#c", "umt0#m z8e0#z", "umt0#n z8e0#A");
+
     final int build;
     private final ClassLoader loader;
     private final Map<String, String> names;
@@ -39,10 +58,12 @@ final class ComposeSymbols {
 
     static ComposeSymbols select(ClassLoader loader) throws ReflectiveOperationException {
         ComposeSymbols legacy = new ComposeSymbols(loader, 2630709, Collections.emptyMap());
-        ComposeSymbols current = new ComposeSymbols(loader, 2630717, BUILD_2630717);
         if (legacy.matches()) return legacy;
-        if (current.matches()) return current;
-        throw new ClassNotFoundException("No Compose mapping matched builds 2630709 or 2630717");
+        ComposeSymbols build2630717 = new ComposeSymbols(loader, 2630717, BUILD_2630717);
+        if (build2630717.matches()) return build2630717;
+        ComposeSymbols build2630718 = new ComposeSymbols(loader, 2630718, BUILD_2630718);
+        if (build2630718.matches()) return build2630718;
+        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717 or 2630718");
     }
 
     private boolean matches() {

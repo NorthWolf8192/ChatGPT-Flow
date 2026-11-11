@@ -25,7 +25,7 @@
 | --- | --- |
 | Android | 12L / API 32 及以上 |
 | 框架 | 支持现代 libxposed API 102 的 LSPosed |
-| 目标应用 | ChatGPT 1.2026.307，versionCode 2630709 或 2630717 |
+| 目标应用 | ChatGPT 1.2026.307，构建 2630709、2630717、2630718 |
 | 作用域 | `com.openai.chatgpt` |
 | 模块包名 | `io.github.northwolf8192.chatgptflow` |
 

@@ -93,9 +93,10 @@ public final class FlowModule extends XposedModule {
                 return Boolean.TRUE.equals(args[0]) || hasChatTag(args[1]);
             });
             Method scaffold = null;
-            for (Method m : symbols.type("isv0").getDeclaredMethods()) {
+            String scaffoldName = symbols.methodName("isv0", "a");
+            for (Method m : symbols.methodOwner("isv0", "a").getDeclaredMethods()) {
                 Class<?>[] p = m.getParameterTypes();
-                if (m.getName().equals("a") && p.length == 13 && p[0] == modifier && p[5] == long.class) scaffold = m;
+                if (m.getName().equals(scaffoldName) && p.length == 13 && p[0] == modifier && p[5] == long.class) scaffold = m;
             }
             if (scaffold == null) throw new NoSuchMethodException("Conversation scaffold");
             scaffold.setAccessible(true);
@@ -130,7 +131,7 @@ public final class FlowModule extends XposedModule {
                 return chain.proceed();
             });
             installLifecycleRecovery(loader);
-            log(4, TAG, "ChatGPT Flow 1.0.19 initialized for ChatGPT build " + symbols.build + " (API 102).");
+            log(4, TAG, "ChatGPT Flow 1.0.20 initialized for ChatGPT build " + symbols.build + " (API 102).");
         } catch (Throwable error) {
             log(6, TAG, "Unsupported ChatGPT build or missing Compose adapter", error);
         }
@@ -226,8 +227,9 @@ public final class FlowModule extends XposedModule {
                 args[0] = ((Integer)args[0] & ~14) | 4;
                 return chain.proceed(args);
             });
-            for (Method m : symbols.type("qod1").getDeclaredMethods()) {
-                if (m.getName().equals("d")) deoptimize(m);
+            String overlayCaller = symbols.methodName("qod1", "d");
+            for (Method m : symbols.methodOwner("qod1", "d").getDeclaredMethods()) {
+                if (m.getName().equals(overlayCaller)) deoptimize(m);
             }
             for (Method m : bottomSheet.getDeclaredMethods()) if (m.getName().equals("h")) deoptimize(m);
             log(4, TAG, "Optional IME OverlayScrim and PeekHeightScrim hooks installed.");
