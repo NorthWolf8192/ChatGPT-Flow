@@ -211,7 +211,7 @@ public final class MainActivity extends Activity {
     private void heading(LinearLayout parent,String title,String subtitle){
         LinearLayout brand=row();brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView word=label("CHATGPT  /  FLOW",11,muted,true);brand.addView(word,new LinearLayout.LayoutParams(0,-2,1));
-        TextView version=label("v1.0.20",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
+        TextView version=label("v1.0.21",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
         parent.addView(brand);space(parent,16);
         parent.addView(label(title,32,text,true));space(parent,6);parent.addView(label(subtitle,13,muted,false));space(parent,24);
     }
@@ -225,7 +225,7 @@ public final class MainActivity extends Activity {
         overlay.addView(label("流动的色彩",25,text,true));space(overlay,4);
         overlay.addView(label("此刻的聊天背景",12,dark?0xffc5c6d5:0xff686d85,false));space(overlay,24);
         LinearLayout composer=row();composer.setGravity(Gravity.CENTER_VERTICAL);composer.setPadding(dp(14),dp(12),dp(14),dp(12));
-        composer.setBackground(round(dark?0x66434858:0xaaffffff,25));
+        preview.composer=composer;
         Icon plus=new Icon("plus",text);composer.addView(plus,new LinearLayout.LayoutParams(dp(19),dp(19)));
         TextView prompt=label("询问 ChatGPT",13,dark?0xffc1c4d0:0xff9397a7,false);
         LinearLayout.LayoutParams promptLp=new LinearLayout.LayoutParams(0,-2,1);promptLp.leftMargin=dp(12);composer.addView(prompt,promptLp);
@@ -278,7 +278,7 @@ public final class MainActivity extends Activity {
         LinearLayout titleRow=row();titleRow.setGravity(Gravity.CENTER_VERTICAL);
         Icon mark=new Icon("flow",accent);mark.setPadding(dp(11),dp(11),dp(11),dp(11));mark.setBackground(round(accentSoft,17));titleRow.addView(mark,new LinearLayout.LayoutParams(dp(52),dp(52)));
         LinearLayout names=column();LinearLayout.LayoutParams namesLp=new LinearLayout.LayoutParams(0,-2,1);namesLp.leftMargin=dp(15);
-        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.20",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
+        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.21",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
         space(identity,18);identity.addView(label("循环彩虹渐变与磨砂材质，\n为你的聊天增添一点流动感。",13,muted,false));
         section(parent,"开始使用","只需三步");
         LinearLayout guide=card(parent);
@@ -287,7 +287,7 @@ public final class MainActivity extends Activity {
         step(guide,"03","重新打开应用","强行停止 ChatGPT，再重新打开");
         section(parent,"版本信息",null);
         LinearLayout versions=card(parent);
-        info(versions,"模块版本","1.0.20");divider(versions);
+        info(versions,"模块版本","1.0.21");divider(versions);
         info(versions,"适配 ChatGPT","1.2026.307");divider(versions);
         info(versions,"构建版本","2630709 / 2630717 / 2630718");divider(versions);
         info(versions,"框架接口","LSPosed API 102");
@@ -384,13 +384,31 @@ public final class MainActivity extends Activity {
 
     private final class Preview extends View {
         private final FlowRenderer renderer=new FlowRenderer();
+        private final GlassRenderer material=new GlassRenderer();
         private final Path clip=new Path();
         private final RectF bounds=new RectF();
+        private final RectF composerBounds=new RectF();
+        private final Paint composerFallback=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private View composer;
         Preview(){super(MainActivity.this);}
         @Override protected void onDraw(Canvas canvas){
             int save=canvas.save();bounds.set(0,0,getWidth(),getHeight());clip.reset();clip.addRoundRect(bounds,dp(28),dp(28),Path.Direction.CW);canvas.clipPath(clip);
             boolean on=prefs.getBoolean("enabled",true);int strength=prefs.getInt("strength",70);
-            renderer.draw(canvas,getWidth(),getHeight(),dark?0xff212121:0xfff9f9f9,on,prefs.getInt("speed",55),strength);canvas.restoreToCount(save);
+            int base=dark?0xff212121:0xfff9f9f9;
+            int speed=prefs.getInt("speed",55);
+            long time=android.os.SystemClock.uptimeMillis();
+            renderer.drawAt(canvas,getWidth(),getHeight(),base,base,on,speed,strength,time);
+            if(composer!=null && composer.getWidth()>0 && composer.getHeight()>0){
+                composerBounds.set(composer.getLeft(),composer.getTop(),composer.getRight(),composer.getBottom());
+                float radius=dp(25);
+                if(!on || !prefs.getBoolean("glass_enabled",true) || !material.draw(canvas,composerBounds,radius,radius,0,0,
+                        renderer,getWidth(),getHeight(),base,base,speed,strength,time,
+                        getResources().getDisplayMetrics().density,prefs.getInt("glass_blur",22),prefs.getInt("glass_tint",38),false)){
+                    composerFallback.setColor(dark?0x66434858:0xaaffffff);
+                    canvas.drawRoundRect(composerBounds,radius,radius,composerFallback);
+                }
+            }
+            canvas.restoreToCount(save);
             if(on&&strength>0&&hasWindowFocus()&&getVisibility()==VISIBLE)postInvalidateDelayed(33);
         }
         @Override public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(focused)invalidate();}

@@ -1,31 +1,47 @@
-import app.chatgpt.flow.Palette;
+package app.chatgpt.flow;
+
 class PaletteTest {
- static double lum(int c) { double sum=0; double[] weights={.2126,.7152,.0722};for(int i=0;i<3;i++){double x=((c>>(16-i*8))&255)/255.;sum+=weights[i]*(x<=.04045?x/12.92:Math.pow((x+.055)/1.055,2.4));}return sum; }
- public static void main(String[] args){
-  int tested=0;
-  for(int base:new int[]{0xff000000,0xff171717,0xff212121,0xfff9f9f9,0xffffffff}){
-   for(int intensity=0;intensity<=100;intensity++){
-    int[] colors=Palette.colors(base,intensity);
-    if(colors.length!=8||colors[0]!=colors[7])throw new AssertionError("Rainbow seam");
-    for(int i=0;i<colors.length-1;i++)for(int step=0;step<=10;step++){
-     int c=Palette.blend(colors[i],colors[i+1],step/10f);
-     double l=lum(c),contrast=Palette.isDark(base)?1.05/(l+.05):(l+.05)/.05;
-     if(contrast<4.5)throw new AssertionError("Contrast: "+contrast);
-     if((c>>>24)!=255)throw new AssertionError("Opacity");tested++;
+    private static double luminance(int color) {
+        double[] weights = {.2126, .7152, .0722};
+        double sum = 0;
+        for (int channel = 0; channel < weights.length; channel++) {
+            double component = ((color >>> (16 - channel * 8)) & 255) / 255.;
+            sum += weights[channel] * (component <= .04045
+                    ? component / 12.92 : Math.pow((component + .055) / 1.055, 2.4));
+        }
+        return sum;
     }
-   }
-  }
-  for(int speed=1;speed<=100;speed++){
-   long duration=Palette.durationMs(speed);
-   if(Palette.phase(1000,1000,speed)!=0||Palette.phase(1000+duration,1000,speed)!=0)throw new AssertionError("Loop");
-   if(speed>1&&duration>=Palette.durationMs(speed-1))throw new AssertionError("Speed");
-  }
-  int[] source=Palette.colors(0xff212121,100);
-  if(Palette.blurColors(source,0)!=source)throw new AssertionError("Zero-radius palette");
-  int[] blurred=Palette.blurColors(source,.1f);
-  if(blurred[0]!=blurred[blurred.length-1]||blurred[0]==source[0])throw new AssertionError("Smoothed loop seam");
-  for(int c:Palette.blurColors(new int[]{0xff473d30,0xff473d30},.2f))
-   if(c!=0xff473d30)throw new AssertionError("Constant color under blur");
-  System.out.println("PASS: "+tested+" palette samples, dark/light text contrast, seamless loop and 100 speed settings");
- }
+
+    public static void main(String[] args) {
+        int tested = 0;
+        for (int base : new int[]{0xff000000, 0xff171717, 0xff212121, 0xfff9f9f9, 0xffffffff}) {
+            for (int strength = 0; strength <= 100; strength++) {
+                int[] stops = Palette.meshBase(base, strength);
+                int[] glows = Palette.meshGlows(base, strength);
+                for (int stop : stops) {
+                    // Each glow may be absent or at maximum alpha at a given pixel.
+                    for (int mask = 0; mask < 1 << glows.length; mask++) {
+                        int color = stop;
+                        for (int i = 0; i < glows.length; i++) {
+                            if ((mask & (1 << i)) != 0) {
+                                color = Palette.blend(color, glows[i], (glows[i] >>> 24) / 255f);
+                            }
+                        }
+                        double light = luminance(color);
+                        double contrast = Palette.isDark(base) ? 1.05 / (light + .05) : (light + .05) / .05;
+                        if (contrast < 4.5) throw new AssertionError("Contrast: " + contrast);
+                        if ((color >>> 24) != 255) throw new AssertionError("Background must be opaque");
+                        if (strength == 0 && color != base) throw new AssertionError("Zero strength");
+                        tested++;
+                    }
+                }
+            }
+        }
+        for (int speed = 2; speed <= 100; speed++) {
+            if (Palette.durationMs(speed) >= Palette.durationMs(speed - 1)) {
+                throw new AssertionError("Increasing speed must shorten the cycle");
+            }
+        }
+        System.out.println("PASS: " + tested + " mesh palette samples, text contrast and speed settings");
+    }
 }

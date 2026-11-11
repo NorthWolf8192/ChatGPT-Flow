@@ -1,5 +1,5 @@
 version: 2.12.1
-apkFileName: ChatGPT流光背景_1.0.20.apk
+apkFileName: ChatGPT流光背景_1.0.21.apk
 usesFramework:
   ids:
   - 1
@@ -9,8 +9,8 @@ sdkInfo:
 packageInfo:
   forcedPackageId: 127
 versionInfo:
-  versionCode: 21
-  versionName: 1.0.20
+  versionCode: 22
+  versionName: 1.0.21
 doNotCompress:
 - arsc
 - dex

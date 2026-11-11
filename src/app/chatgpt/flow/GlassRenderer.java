@@ -4,16 +4,14 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.Shader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
-/** Draws the smoothed flow gradient directly, with a separate layer for edge masks. */
+/** Clips the shared backdrop and applies a tint, with a separate layer for edge masks. */
 final class GlassRenderer {
     private static Constructor<?> edgeConstructor;
     private static Method position, begin, end, drawNode, clipBounds;
     private Object fadeNode;
-    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tint = new Paint(3);
     private final Path path = new Path();
     private final RectF shape = new RectF();
@@ -70,10 +68,6 @@ final class GlassRenderer {
         if (!canvas.isHardwareAccelerated() || rect.isEmpty() || backdrop==null
                 || viewportWidth<=0 || viewportHeight<=0) return false;
         float radius=Math.max(0,blurDp*density);
-        Shader shader=backdrop.glassShader(viewportWidth,viewportHeight,base,strength,frameTime,speed,radius);
-        fill.setColor(shader==null?base:0xffffffff);
-        if(fill.getShader()!=shader)fill.setShader(shader);
-
         boolean dark=Palette.isDark(base);
         int r=(sourceColor>>>16)&255,g=(sourceColor>>>8)&255,b=sourceColor&255;
         boolean chromatic=Math.max(r,Math.max(g,b))-Math.min(r,Math.min(g,b))>65;
@@ -91,19 +85,25 @@ final class GlassRenderer {
                 tintColor=dark?0x004b3a70:0x00dccaff;
             }
         }
-        // Use backdrop coordinates so every surface can use the same animated shader matrix.
-        shape.set(rect);shape.offset(nodeX,nodeY);
-        if(outline!=null)outline.offset(nodeX,nodeY,path);
+        // Use backdrop coordinates so glass follows the same light as the surrounding scene.
+        shape.set(rect);
+        shape.offset(nodeX,nodeY);
+        boolean rounded=outline!=null || rx>0 || ry>0;
+        if(outline!=null){
+            outline.offset(nodeX,nodeY,path);
+        }else if(rounded){
+            path.rewind();
+            path.addRoundRect(shape,rx,ry,Path.Direction.CW);
+        }
         int save=canvas.save();
         try {
             canvas.translate(-nodeX,-nodeY);
-            tint.setColor((alpha<<24)|tintColor);
-            if(outline==null){
-                canvas.drawRoundRect(shape,rx,ry,fill);
-                if(alpha>0)canvas.drawRoundRect(shape,rx,ry,tint);
-            }else{
-                canvas.drawPath(path,fill);
-                if(alpha>0)canvas.drawPath(path,tint);
+            if(rounded)canvas.clipPath(path);
+            else canvas.clipRect(shape);
+            backdrop.drawGlass(canvas,shape,viewportWidth,viewportHeight,base,strength,frameTime,speed,radius);
+            if(alpha>0){
+                tint.setColor((alpha<<24)|tintColor);
+                canvas.drawRect(shape,tint);
             }
         } finally { canvas.restoreToCount(save); }
         return true;
