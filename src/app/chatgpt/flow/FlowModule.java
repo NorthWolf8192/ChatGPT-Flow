@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
 
-/** Adapter for the supported builds of com.openai.chatgpt 1.2026.307. */
+/** Adapter for supported builds of com.openai.chatgpt. */
 public final class FlowModule extends XposedModule {
     private static final String TAG = "ChatGPTFlow";
     private static final String CHAT_TAG = "ConversationScreenContentScaffold";
@@ -107,8 +107,9 @@ public final class FlowModule extends XposedModule {
                 return args == null ? chain.proceed() : chain.proceed(args);
             });
             // Prevent an already compiled conversation caller from bypassing the hooked scaffold.
-            for (Method m : symbols.type("mut").getDeclaredMethods()) {
-                if (m.getName().equals("f") && m.getParameterTypes().length == 35) deoptimize(m);
+            String callerName = symbols.methodName("mut", "f");
+            for (Method m : symbols.methodOwner("mut", "f").getDeclaredMethods()) {
+                if (m.getName().equals(callerName)) deoptimize(m);
             }
             installImeScrimHooks(modifier);
             try { glass=new GlassHooks(this,loader,symbols); }
@@ -131,7 +132,7 @@ public final class FlowModule extends XposedModule {
                 return chain.proceed();
             });
             installLifecycleRecovery(loader);
-            log(4, TAG, "ChatGPT Flow 1.0.21 initialized for ChatGPT build " + symbols.build + " (API 102).");
+            log(4, TAG, "ChatGPT Flow 1.0.23 initialized for ChatGPT build " + symbols.build + " (API 102).");
         } catch (Throwable error) {
             log(6, TAG, "Unsupported ChatGPT build or missing Compose adapter", error);
         }
@@ -205,26 +206,38 @@ public final class FlowModule extends XposedModule {
     private void installImeScrimHooks(Class<?> modifier) {
         try {
             Class<?> composer = symbols.type("a1q");
-            Method overlay = symbols.method("qod1", "f", modifier, float.class, composer, int.class, int.class);
+            boolean sharedGradient = symbols.build == ComposeSymbols.BUILD_WITH_SHARED_GRADIENT;
+            Method overlay = sharedGradient
+                    ? symbols.method("qod1", "f", float.class, int.class, composer, modifier)
+                    : symbols.method("qod1", "f", modifier, float.class, composer, int.class, int.class);
             overlay.setAccessible(true);
             hook(overlay).intercept(chain -> {
                 if (!imeCompatActive()) return chain.proceed();
                 Object[] args = chain.getArgs().toArray();
-                args[1] = 0f;
-                args[3] = ((Integer)args[3] & ~112) | 32;
-                args[4] = (Integer)args[4] & ~2;
+                if (sharedGradient) {
+                    args[0] = 0f;
+                    args[1] = ((Integer)args[1] & ~14) | 4;
+                } else {
+                    args[1] = 0f;
+                    args[3] = ((Integer)args[3] & ~112) | 32;
+                    args[4] = (Integer)args[4] & ~2;
+                }
                 return chain.proceed(args);
             });
             Class<?> function0 = symbols.type("kotlin.jvm.functions.Function0");
             Class<?> bottomSheet = symbols.type("xwa");
-            Method peek = bottomSheet.getDeclaredMethod("i", int.class, long.class,
-                    composer, function0, boolean.class, boolean.class);
+            Method peek = sharedGradient
+                    ? bottomSheet.getDeclaredMethod("i", long.class, boolean.class, boolean.class,
+                            function0, modifier, composer, int.class)
+                    : bottomSheet.getDeclaredMethod("i", int.class, long.class,
+                            composer, function0, boolean.class, boolean.class);
             peek.setAccessible(true);
             hook(peek).intercept(chain -> {
                 if (!imeCompatActive()) return chain.proceed();
                 Object[] args = chain.getArgs().toArray();
-                args[1] = 0L;
-                args[0] = ((Integer)args[0] & ~14) | 4;
+                args[sharedGradient ? 0 : 1] = 0L;
+                int flags = sharedGradient ? 6 : 0;
+                args[flags] = ((Integer)args[flags] & ~14) | 4;
                 return chain.proceed(args);
             });
             String overlayCaller = symbols.methodName("qod1", "d");
@@ -232,6 +245,13 @@ public final class FlowModule extends XposedModule {
                 if (m.getName().equals(overlayCaller)) deoptimize(m);
             }
             for (Method m : bottomSheet.getDeclaredMethods()) if (m.getName().equals("h")) deoptimize(m);
+            if (sharedGradient) {
+                for (String owner : new String[]{"ewj0", "tu6", "p4b"}) {
+                    for (Method m : symbols.type(owner).getDeclaredMethods()) {
+                        if (m.getName().equals("invoke")) deoptimize(m);
+                    }
+                }
+            }
             log(4, TAG, "Optional IME OverlayScrim and PeekHeightScrim hooks installed.");
         } catch (Throwable error) { logOnce("Optional IME scrim adapter unavailable", error); }
     }

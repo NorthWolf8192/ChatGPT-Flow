@@ -140,7 +140,7 @@ final class GlassHooks {
         Method round=wrapper.getDeclaredMethod("e",float.class,float.class,float.class,float.class,float.class,float.class,paint);
         Method circle=wrapper.getDeclaredMethod("b",float.class,long.class,paint);
         // Rectangle, circle and round-rectangle fills; vector paths are intentionally retained.
-        Method rectangle=wrapper.getDeclaredMethod("s",float.class,float.class,float.class,float.class,paint);
+        Method rectangle=symbols.method("ol2","s",float.class,float.class,float.class,float.class,paint);
         for(Method m:new Method[]{round,circle,rectangle}){
             m.setAccessible(true);
             module.glassHook(m,chain->{
@@ -217,7 +217,7 @@ final class GlassHooks {
         for(Method m:symbols.type("akf").getDeclaredMethods())module.glassDeopt(m);
         for(Method m:bridge.getDeclaredMethods())if(m.getName().equals("a"))module.glassDeopt(m);
         for(Method m:coordinator.getDeclaredMethods())if(m.getName().equals(symbols.methodName("qwj0","e1")))module.glassDeopt(m);
-        String[][] tagCallers={
+        String[][] legacyTagCallers={
                 {"nje","d"},{"z9q","invoke"},{"a181","H"},{"sz2","l"},
                 {"kff0","c"},{"yau","d"},{"aq00","h"},{"fy91","f"},
                 {"nt51","invoke"},{"ot51","invoke"},{"pt51","invoke"},{"h3w0","a"},
@@ -227,6 +227,14 @@ final class GlassHooks {
                 {"nst","invoke"},{"bl7","q"},{"bu00","create"},{"bu00","update"},
                 {"dt51","invoke"},{"lqf0","J"},{"ppe","invoke"},{"grf1","e"},{"nqe1","a"},
                 {"vof1","b"},{"p5y0","invoke"},{"r5y0","invoke"}};
+        String[][] tagCallers=symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT
+                ? new String[][]{
+                    {"kfi0","a"},{"nei0","a"},{"aq00","h"},{"fy91","f"},{"xa01","f"},{"t0u","a"},
+                    {"t0u","b"},{"t0u","c"},{"t0u","i"},{"t0u","l"},{"au00","W0"},
+                    {"nst","invoke"},{"dt51","invoke"},{"lqf0","J"},{"grf1","e"},{"nbf1","c"},
+                    {"nqe1","a"},{"vof1","b"},{"p5y0","invoke"},{"r5y0","invoke"},
+                    {"g780","invoke"},{"yz6","invoke"},{"m60","I"},{"wnd0","invoke"},{"v0v","invoke"}}
+                : legacyTagCallers;
         for(String[] caller:tagCallers){
             try{
                 String name=symbols.methodName(caller[0],caller[1]);
@@ -263,6 +271,31 @@ final class GlassHooks {
             if(element.getClass()==gradientElement)sidebarGradients.rememberElement(element);
             return args[0];
         });
+        Object collectTop=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
+            if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
+            Object element=args[1];
+            if(element.getClass()==gradientElement)topGradients.rememberElement(element);
+            return args[0];
+        });
+        if(symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT){
+            installSharedGradientOwnership(modifier,collect,collectTop,collectSettings,collectSidebar);
+        }else{
+            installLegacyGradientOwnership(modifier,collect,collectTop,collectSettings,collectSidebar);
+        }
+        Method create=gradientElement.getDeclaredMethod("create");create.setAccessible(true);
+        module.glassHook(create,chain->{
+            Object node=chain.proceed();footerGradients.bind(chain.getThisObject(),node);
+            topGradients.bind(chain.getThisObject(),node);settingsGradients.bind(chain.getThisObject(),node);sidebarGradients.bind(chain.getThisObject(),node);return node;
+        });
+        Method update=gradientElement.getDeclaredMethod("update",symbols.type("f5i0"));update.setAccessible(true);
+        module.glassHook(update,chain->{
+            Object result=chain.proceed();footerGradients.bind(chain.getThisObject(),chain.getArg(0));
+            topGradients.bind(chain.getThisObject(),chain.getArg(0));settingsGradients.bind(chain.getThisObject(),chain.getArg(0));sidebarGradients.bind(chain.getThisObject(),chain.getArg(0));return result;
+        });
+    }
+
+    private void installLegacyGradientOwnership(Class<?> modifier,Object collect,Object collectTop,
+                                                Object collectSettings,Object collectSidebar)throws Exception{
         // The sidebar footer wrapper builds J(2,8,...) outside its SidebarFooter children.
         // Scope the exact construction rather than treating every MENU/Scrim as an edge.
         Method sidebarFooter=symbols.method("tzt","invoke",Object.class,Object.class);
@@ -303,12 +336,6 @@ final class GlassHooks {
                 try{base=module.glassTheme(chain.getArg(3));}catch(Throwable error){module.glassError("Cannot read settings search theme",error);}
             }
             return result;
-        });
-        Object collectTop=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
-            if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
-            Object element=args[1];
-            if(element.getClass()==gradientElement)topGradients.rememberElement(element);
-            return args[0];
         });
         Method settingsSearch=symbols.method("grf1","e",symbols.type("x6z0"),
                 symbols.type("vox0"),function1,symbols.type("kotlin.jvm.functions.Function0"),
@@ -353,32 +380,76 @@ final class GlassHooks {
             }
             return result;
         });
-        Method create=gradientElement.getDeclaredMethod("create");create.setAccessible(true);
-        module.glassHook(create,chain->{
-            Object node=chain.proceed();footerGradients.bind(chain.getThisObject(),node);
-            topGradients.bind(chain.getThisObject(),node);settingsGradients.bind(chain.getThisObject(),node);sidebarGradients.bind(chain.getThisObject(),node);return node;
+    }
+
+    private void installSharedGradientOwnership(Class<?> modifier,Object collect,Object collectTop,
+                                                Object collectSettings,Object collectSidebar)throws Exception{
+        Class<?> composer=symbols.type("a1q");
+        Class<?> scroll=symbols.type("vox0");
+        Class<?> function0=symbols.type("kotlin.jvm.functions.Function0");
+        scope(symbols.method("nst","invoke",Object.class,Object.class),buildingConversationFooter,true);
+        scope(symbols.method("dt51","invoke",Object.class,Object.class),buildingTopBar,true);
+        scope(symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
+                symbols.type("ijn0"),symbols.type("j3c1"),modifier,composer,int.class),buildingSidebarEdge,1);
+        scope(symbols.method("v0v","invoke",Object.class,Object.class),buildingSidebarEdge,2);
+        scope(symbols.method("grf1","e",symbols.type("x6z0"),scroll,symbols.type("zsa0"),
+                symbols.type("om50"),function1,function0,modifier,composer,int.class),buildingSettingsSearch,true);
+        scope(symbols.method("wnd0","invoke",Object.class,Object.class),buildingSettingsSearch,true);
+        scope(symbols.method("g780","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
+        scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
+        Method gradient=symbols.method("lqf0","J",modifier,scroll,int.class,long.class,boolean.class,composer,int.class);
+        gradient.setAccessible(true);
+        module.glassHook(gradient,chain->{
+            Object result=chain.proceed();
+            int edge=(Integer)chain.getArg(2);
+            Object collector=null;
+            if(edge==2 && Boolean.TRUE.equals(buildingConversationFooter.get()))collector=collect;
+            else if(edge==1 && Boolean.TRUE.equals(buildingTopBar.get()))collector=collectTop;
+            else if(Integer.valueOf(edge).equals(buildingSidebarEdge.get()))collector=collectSidebar;
+            else if(Boolean.TRUE.equals(buildingSettingsSearch.get()) || Boolean.TRUE.equals(buildingSettingsHeader.get()))
+                collector=collectSettings;
+            if(collector!=null){
+                try{
+                    fold.invoke(result,0,collector);
+                    if(collector==collectSidebar || collector==collectSettings)base=module.glassTheme(chain.getArg(5));
+                }catch(Throwable error){module.glassError("Cannot track shared edge material",error);}
+            }
+            return result;
         });
-        Method update=gradientElement.getDeclaredMethod("update",symbols.type("f5i0"));update.setAccessible(true);
-        module.glassHook(update,chain->{
-            Object result=chain.proceed();footerGradients.bind(chain.getThisObject(),chain.getArg(0));
-            topGradients.bind(chain.getThisObject(),chain.getArg(0));settingsGradients.bind(chain.getThisObject(),chain.getArg(0));sidebarGradients.bind(chain.getThisObject(),chain.getArg(0));return result;
+        Method bottom=symbols.method("c1c0","o",modifier,scroll,long.class,boolean.class,boolean.class,
+                composer,int.class,int.class);
+        module.glassDeopt(bottom);
+    }
+
+    private <T> void scope(Method method,ThreadLocal<T> state,T value){
+        method.setAccessible(true);
+        module.glassHook(method,chain->{
+            T previous=state.get();
+            state.set(value);
+            try{return chain.proceed();}
+            finally{if(previous==null)state.remove();else state.set(previous);}
         });
     }
 
     /** Target the sidebar's own content modifier, including its independent shaped background. */
     private void installExactSurfaceHooks(Class<?> modifier,Method sentry)throws Exception{
         Method sidebar=null;
-        for(Method m:symbols.type("t0u").getDeclaredMethods()){
+        boolean sharedGradient=symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT;
+        int modifierIndex=sharedGradient?10:8;
+        int composerIndex=modifierIndex+1;
+        int flagsIndex=sharedGradient?13:10;
+        for(Method m:symbols.methodOwner("t0u","c").getDeclaredMethods()){
             Class<?>[] p=m.getParameterTypes();
-            if(m.getName().equals("c") && p.length==11 && p[8]==modifier)sidebar=m;
+            if(m.getName().equals(symbols.methodName("t0u","c")) && p.length==flagsIndex+1 && p[modifierIndex]==modifier)sidebar=m;
         }
         if(sidebar==null)throw new NoSuchMethodException("Sidebar content background");
         sidebar.setAccessible(true);
         module.glassHook(sidebar,chain->{
-            try{base=module.glassTheme(chain.getArg(9));}catch(Throwable error){module.glassError("Cannot read sidebar theme",error);}
+            try{base=module.glassTheme(chain.getArg(composerIndex));}catch(Throwable error){module.glassError("Cannot read sidebar theme",error);}
             Object[] args=chain.getArgs().toArray();
-            args[8]=sentry.invoke(null,args[8],"FlowSidebarMaterialSurface");
-            args[10]=((Integer)args[10]&~0x07000000)|0x04000000;
+            args[modifierIndex]=sentry.invoke(null,args[modifierIndex],"FlowSidebarMaterialSurface");
+            int shift=sharedGradient?0:24;
+            args[flagsIndex]=((Integer)args[flagsIndex]&~(7<<shift))|(4<<shift);
             return chain.proceed(args);
         });
         // Style the actual animated indicator created inside p5y0, preserving its Animatable

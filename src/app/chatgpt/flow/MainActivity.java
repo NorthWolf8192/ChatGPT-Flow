@@ -211,7 +211,7 @@ public final class MainActivity extends Activity {
     private void heading(LinearLayout parent,String title,String subtitle){
         LinearLayout brand=row();brand.setGravity(Gravity.CENTER_VERTICAL);
         TextView word=label("CHATGPT  /  FLOW",11,muted,true);brand.addView(word,new LinearLayout.LayoutParams(0,-2,1));
-        TextView version=label("v1.0.21",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
+        TextView version=label("v1.0.23",11,accent,true);version.setPadding(dp(10),dp(5),dp(10),dp(5));version.setBackground(round(accentSoft,12));brand.addView(version);
         parent.addView(brand);space(parent,16);
         parent.addView(label(title,32,text,true));space(parent,6);parent.addView(label(subtitle,13,muted,false));space(parent,24);
     }
@@ -278,7 +278,7 @@ public final class MainActivity extends Activity {
         LinearLayout titleRow=row();titleRow.setGravity(Gravity.CENTER_VERTICAL);
         Icon mark=new Icon("flow",accent);mark.setPadding(dp(11),dp(11),dp(11),dp(11));mark.setBackground(round(accentSoft,17));titleRow.addView(mark,new LinearLayout.LayoutParams(dp(52),dp(52)));
         LinearLayout names=column();LinearLayout.LayoutParams namesLp=new LinearLayout.LayoutParams(0,-2,1);namesLp.leftMargin=dp(15);
-        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.21",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
+        names.addView(label("ChatGPT 流光背景",18,text,true));space(names,5);names.addView(label("FLOW  ·  1.0.23",11,muted,true));titleRow.addView(names,namesLp);identity.addView(titleRow);
         space(identity,18);identity.addView(label("循环彩虹渐变与磨砂材质，\n为你的聊天增添一点流动感。",13,muted,false));
         section(parent,"开始使用","只需三步");
         LinearLayout guide=card(parent);
@@ -287,9 +287,9 @@ public final class MainActivity extends Activity {
         step(guide,"03","重新打开应用","强行停止 ChatGPT，再重新打开");
         section(parent,"版本信息",null);
         LinearLayout versions=card(parent);
-        info(versions,"模块版本","1.0.21");divider(versions);
-        info(versions,"适配 ChatGPT","1.2026.307");divider(versions);
-        info(versions,"构建版本","2630709 / 2630717 / 2630718");divider(versions);
+        info(versions,"模块版本","1.0.23");divider(versions);
+        info(versions,"适配 ChatGPT","1.2026.307 / 1.2026.314");divider(versions);
+        info(versions,"构建版本","2630709 / 2630717 / 2630718 / 2631421");divider(versions);
         info(versions,"框架接口","LSPosed API 102");
         space(parent,22);TextView footer=label("FLOW WITH YOUR CONVERSATION",10,muted,true);footer.setGravity(Gravity.CENTER);parent.addView(footer);
     }

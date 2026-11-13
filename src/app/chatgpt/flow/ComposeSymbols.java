@@ -6,8 +6,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Compose names differ between APK builds labeled 1.2026.307. */
+/** Compose names and call signatures for supported ChatGPT builds. */
 final class ComposeSymbols {
+    static final int BUILD_WITH_SHARED_GRADIENT = 2631421;
     private static final Map<String, String> BUILD_2630717 = aliases(
             "g5i0 u2i0", "a1q c0q", "k771 r971", "pib0 lhb0", "akf kjf", "yjf jjf",
             "f5i0 t2i0", "b600 y400", "wjf hjf", "ec60 x960", "qwj0 guj0",
@@ -46,6 +47,21 @@ final class ComposeSymbols {
             "aq00#h jot0#e", "fy91#f q381#d", "nbf1#c ajf1#a", "nqe1 qve1",
             "vof1#b zsf1#c", "umt0#m z8e0#z", "umt0#n z8e0#A");
 
+    private static final Map<String, String> BUILD_2631421 = aliases(
+            "g5i0 tvj0", "a1q hwq", "k771 zy91", "pib0 r2d0", "akf iyf", "yjf gyf",
+            "f5i0 svj0", "b600 se10", "wjf eyf", "ec60 bl70", "qwj0 bol0",
+            "ol2 mt2", "ol2#s mt2#r", "ew2 t43", "sw2 f53", "y6x mdy", "p550 xd60", "vox0 lb01",
+            "x3t0#c mv70#K", "isv0#a bz10#l", "mut#f fvu#g", "cja0#x mnp#t", "o500 ge10",
+            "io.sentry.compose.e io.sentry.compose.d", "bl7#F l701#v", "kha0#a0 q6b#T",
+            "qwj0#e1 bol0#d1", "androidx.compose.ui.node.LayoutNode.N1 R1",
+            "qod1#f aii1#d", "qod1#d aii1#b", "xwa x4b",
+            "t0u q1v", "yd01 q231", "tpb0 r9d0", "ijn0 eop0", "j3c1 d0f1",
+            "nst itu", "dt51 zk81", "lqf0#J c901#F", "grf1#e ubi1#d", "x6z0 vu11",
+            "bu00 g320", "au00 f320", "vb6#z ggk#x", "p5y0 xs01", "r5y0 zs01",
+            "sz2#l r9a#f", "yau dcv", "nt51 il81", "ot51 jl81",
+            "xa01#f h031#e", "kfi0 b7k0", "nei0 g6k0", "aq00#h t761#d", "fy91#f mm11#e",
+            "nbf1#c f9h1#f", "nqe1 gxh1", "vof1#b q6i1#h");
+
     final int build;
     private final ClassLoader loader;
     private final Map<String, String> names;
@@ -57,13 +73,15 @@ final class ComposeSymbols {
     }
 
     static ComposeSymbols select(ClassLoader loader) throws ReflectiveOperationException {
+        ComposeSymbols build2631421 = new ComposeSymbols(loader, BUILD_WITH_SHARED_GRADIENT, BUILD_2631421);
+        if (build2631421.matches()) return build2631421;
         ComposeSymbols legacy = new ComposeSymbols(loader, 2630709, Collections.emptyMap());
         if (legacy.matches()) return legacy;
         ComposeSymbols build2630717 = new ComposeSymbols(loader, 2630717, BUILD_2630717);
         if (build2630717.matches()) return build2630717;
         ComposeSymbols build2630718 = new ComposeSymbols(loader, 2630718, BUILD_2630718);
         if (build2630718.matches()) return build2630718;
-        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717 or 2630718");
+        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717, 2630718 or 2631421");
     }
 
     private boolean matches() {
