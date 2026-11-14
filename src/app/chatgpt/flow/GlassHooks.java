@@ -227,7 +227,7 @@ final class GlassHooks {
                 {"nst","invoke"},{"bl7","q"},{"bu00","create"},{"bu00","update"},
                 {"dt51","invoke"},{"lqf0","J"},{"ppe","invoke"},{"grf1","e"},{"nqe1","a"},
                 {"vof1","b"},{"p5y0","invoke"},{"r5y0","invoke"}};
-        String[][] tagCallers=symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT
+        String[][] tagCallers=symbols.usesSharedGradient()
                 ? new String[][]{
                     {"kfi0","a"},{"nei0","a"},{"aq00","h"},{"fy91","f"},{"xa01","f"},{"t0u","a"},
                     {"t0u","b"},{"t0u","c"},{"t0u","i"},{"t0u","l"},{"au00","W0"},
@@ -235,7 +235,10 @@ final class GlassHooks {
                     {"nqe1","a"},{"vof1","b"},{"p5y0","invoke"},{"r5y0","invoke"},
                     {"g780","invoke"},{"yz6","invoke"},{"m60","I"},{"wnd0","invoke"},{"v0v","invoke"}}
                 : legacyTagCallers;
+        boolean updatedSymbols = symbols.usesSharedGradient()
+                && symbols.build != ComposeSymbols.BUILD_WITH_SHARED_GRADIENT;
         for(String[] caller:tagCallers){
+            if (updatedSymbols && !symbols.hasAlias(caller[0], caller[1])) continue;
             try{
                 String name=symbols.methodName(caller[0],caller[1]);
                 for(Method m:symbols.methodOwner(caller[0],caller[1]).getDeclaredMethods())
@@ -277,7 +280,7 @@ final class GlassHooks {
             if(element.getClass()==gradientElement)topGradients.rememberElement(element);
             return args[0];
         });
-        if(symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT){
+        if(symbols.usesSharedGradient()){
             installSharedGradientOwnership(modifier,collect,collectTop,collectSettings,collectSidebar);
         }else{
             installLegacyGradientOwnership(modifier,collect,collectTop,collectSettings,collectSidebar);
@@ -396,7 +399,13 @@ final class GlassHooks {
                 symbols.type("om50"),function1,function0,modifier,composer,int.class),buildingSettingsSearch,true);
         scope(symbols.method("wnd0","invoke",Object.class,Object.class),buildingSettingsSearch,true);
         scope(symbols.method("g780","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
-        scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
+        if (symbols.build == 2631428) {
+            scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class,
+                    Object.class),buildingSettingsHeader,true);
+        } else {
+            scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class),
+                    buildingSettingsHeader,true);
+        }
         Method gradient=symbols.method("lqf0","J",modifier,scroll,int.class,long.class,boolean.class,composer,int.class);
         gradient.setAccessible(true);
         module.glassHook(gradient,chain->{
@@ -434,7 +443,7 @@ final class GlassHooks {
     /** Target the sidebar's own content modifier, including its independent shaped background. */
     private void installExactSurfaceHooks(Class<?> modifier,Method sentry)throws Exception{
         Method sidebar=null;
-        boolean sharedGradient=symbols.build==ComposeSymbols.BUILD_WITH_SHARED_GRADIENT;
+        boolean sharedGradient=symbols.usesSharedGradient();
         int modifierIndex=sharedGradient?10:8;
         int composerIndex=modifierIndex+1;
         int flagsIndex=sharedGradient?13:10;

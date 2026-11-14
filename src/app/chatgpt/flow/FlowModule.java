@@ -132,7 +132,7 @@ public final class FlowModule extends XposedModule {
                 return chain.proceed();
             });
             installLifecycleRecovery(loader);
-            log(4, TAG, "ChatGPT Flow 1.0.23 initialized for ChatGPT build " + symbols.build + " (API 102).");
+            log(4, TAG, "ChatGPT Flow 1.0.24 initialized for ChatGPT build " + symbols.build + " (API 102).");
         } catch (Throwable error) {
             log(6, TAG, "Unsupported ChatGPT build or missing Compose adapter", error);
         }
@@ -206,7 +206,7 @@ public final class FlowModule extends XposedModule {
     private void installImeScrimHooks(Class<?> modifier) {
         try {
             Class<?> composer = symbols.type("a1q");
-            boolean sharedGradient = symbols.build == ComposeSymbols.BUILD_WITH_SHARED_GRADIENT;
+            boolean sharedGradient = symbols.usesSharedGradient();
             Method overlay = sharedGradient
                     ? symbols.method("qod1", "f", float.class, int.class, composer, modifier)
                     : symbols.method("qod1", "f", modifier, float.class, composer, int.class, int.class);
@@ -246,7 +246,9 @@ public final class FlowModule extends XposedModule {
             }
             for (Method m : bottomSheet.getDeclaredMethods()) if (m.getName().equals("h")) deoptimize(m);
             if (sharedGradient) {
-                for (String owner : new String[]{"ewj0", "tu6", "p4b"}) {
+                String[] callers = symbols.build == ComposeSymbols.BUILD_WITH_SHARED_GRADIENT
+                        ? new String[]{"ewj0", "tu6", "p4b"} : new String[]{"ewj0", "p4b"};
+                for (String owner : callers) {
                     for (Method m : symbols.type(owner).getDeclaredMethods()) {
                         if (m.getName().equals("invoke")) deoptimize(m);
                     }

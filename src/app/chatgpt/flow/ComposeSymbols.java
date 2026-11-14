@@ -62,6 +62,37 @@ final class ComposeSymbols {
             "xa01#f h031#e", "kfi0 b7k0", "nei0 g6k0", "aq00#h t761#d", "fy91#f mm11#e",
             "nbf1#c f9h1#f", "nqe1 gxh1", "vof1#b q6i1#h");
 
+    private static final Map<String, String> BUILD_2631424 = aliases(
+            "g5i0 jwj0", "a1q ivq", "k771 p0a1", "pib0 t3d0", "akf mxf", "yjf kxf",
+            "f5i0 iwj0", "b600 gd10", "wjf ixf", "ec60 kk70", "qwj0 hpl0",
+            "ol2 mt2", "ol2#s mt2#r", "ew2 u43", "sw2 h53", "y6x lby", "p550 tc60", "vox0 eb01",
+            "x3t0#c hrw0#w", "isv0#a emp#f", "mut#f fuu#g", "cja0#x h701#p", "o500 vc10",
+            "io.sentry.compose.e io.sentry.compose.d", "bl7#F sza1#u", "kha0#a0 y6b#a0",
+            "qwj0#e1 hpl0#d1", "androidx.compose.ui.node.LayoutNode.N1 R1",
+            "qod1#f hli1#h", "qod1#d hli1#f", "xwa g5b", "ewj0 uwj0", "p4b z4b",
+            "t0u i0v", "yd01 u131", "tpb0 sad0", "ijn0 opp0", "j3c1 l2f1",
+            "nst hsu", "dt51 nm81", "lqf0#J mm91#q0", "grf1#e yfi1#a", "x6z0 iu11",
+            "bu00 d220", "au00 c220", "au00#W0 c220#X0", "vb6#z ndg#w", "p5y0 ls01", "r5y0 ns01",
+            "sz2#l fnj0#c", "yau yav", "nt51 wm81", "ot51 xm81", "xa01#f iz21#e",
+            "kfi0 w7k0", "nei0 a7k0", "nbf1#c bfh1#b",
+            "v0v lzu", "wnd0 zs11", "g780 dcw", "yz6 zod0", "zsa0 dta0", "om50 ml50", "c1c0#o yu70#k");
+
+    private static final Map<String, String> BUILD_2631428 = aliases(
+            "g5i0 dvj0", "a1q mvq", "k771 h1a1", "pib0 a3d0", "akf qxf", "yjf oxf",
+            "f5i0 cvj0", "b600 sc10", "wjf mxf", "ec60 uj70", "qwj0 vnl0",
+            "ol2 ct2", "ol2#s ct2#r", "ew2 m43", "sw2 z43", "y6x hby", "p550 fc60", "vox0 lb01",
+            "x3t0#c fn91#L", "isv0#a rwa1#w", "mut#f auu#g", "cja0#x lg71#r", "o500 hc10",
+            "io.sentry.compose.e io.sentry.compose.d", "bl7#F nrw0#w", "kha0#a0 o8b1#k0",
+            "qwj0#e1 vnl0#d1", "androidx.compose.ui.node.LayoutNode.N1 R1",
+            "qod1#f mmi1#c", "qod1#d mmi1#a", "xwa r5b", "ewj0 ovj0", "p4b i5b",
+            "t0u b0v", "yd01 i331", "tpb0 aad0", "ijn0 kop0", "j3c1 t4f1",
+            "nst esu", "dt51 fn81", "lqf0#J o8b1#S", "grf1#e fei1#b", "x6z0 rv11",
+            "bu00 q120", "au00 p120", "au00#W0 p120#X0", "vb6#z ndg#w", "p5y0 bt01", "r5y0 dt01",
+            "sz2#l xwq#f", "yau oav", "nt51 on81", "ot51 pn81", "xa01#f u031#e",
+            "kfi0 m6k0", "nei0 p5k0", "fy91#f rwa1#c", "nbf1#c u6h1#a",
+            "v0v gzu", "wnd0 mu11", "g780 cbd0", "yz6#invoke q8g1#I",
+            "zsa0 psa0", "om50 wk50", "c1c0#o fn91#r");
+
     final int build;
     private final ClassLoader loader;
     private final Map<String, String> names;
@@ -73,6 +104,10 @@ final class ComposeSymbols {
     }
 
     static ComposeSymbols select(ClassLoader loader) throws ReflectiveOperationException {
+        ComposeSymbols build2631428 = new ComposeSymbols(loader, 2631428, BUILD_2631428);
+        if (build2631428.matches()) return build2631428;
+        ComposeSymbols build2631424 = new ComposeSymbols(loader, 2631424, BUILD_2631424);
+        if (build2631424.matches()) return build2631424;
         ComposeSymbols build2631421 = new ComposeSymbols(loader, BUILD_WITH_SHARED_GRADIENT, BUILD_2631421);
         if (build2631421.matches()) return build2631421;
         ComposeSymbols legacy = new ComposeSymbols(loader, 2630709, Collections.emptyMap());
@@ -81,7 +116,15 @@ final class ComposeSymbols {
         if (build2630717.matches()) return build2630717;
         ComposeSymbols build2630718 = new ComposeSymbols(loader, 2630718, BUILD_2630718);
         if (build2630718.matches()) return build2630718;
-        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717, 2630718 or 2631421");
+        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717, 2630718, 2631421, 2631424 or 2631428");
+    }
+
+    boolean usesSharedGradient() {
+        return build == BUILD_WITH_SHARED_GRADIENT || build == 2631424 || build == 2631428;
+    }
+
+    boolean hasAlias(String owner, String member) {
+        return names.containsKey(owner) || names.containsKey(owner + "#" + member);
     }
 
     private boolean matches() {
