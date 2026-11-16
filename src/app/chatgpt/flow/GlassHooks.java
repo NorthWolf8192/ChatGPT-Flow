@@ -399,7 +399,7 @@ final class GlassHooks {
                 symbols.type("om50"),function1,function0,modifier,composer,int.class),buildingSettingsSearch,true);
         scope(symbols.method("wnd0","invoke",Object.class,Object.class),buildingSettingsSearch,true);
         scope(symbols.method("g780","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
-        if (symbols.build == 2631428) {
+        if (symbols.build == 2631428 || symbols.build == 2631431) {
             scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class,
                     Object.class),buildingSettingsHeader,true);
         } else {
