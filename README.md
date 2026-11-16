@@ -80,6 +80,8 @@ python3 build.py
 构建脚本下载固定版本的 Android 编译存根、libxposed API、D8、apktool 和签名工具，运行颜色、材质策略、生命周期与几何测试。
 APK 的 `assets/module-source.zip` 附带当前模块源码。源码包不含签名密钥、密码或原版 ChatGPT APK。
 
+GitHub Actions 为合入 `main` 的适配构建调试 APK。配置仓库 Actions Secrets `FLOW_KEYSTORE_BASE64`（原发布密钥库的 Base64）和 `FLOW_KEYSTORE_PASSWORD`（签名密码）后，工作流会发布正式签名 APK 和 `SHA256SUMS`。密钥别名可通过 Actions 变量 `FLOW_KEY_ALIAS` 指定，默认值为 `chatgptflow`。
+
 ## 隐私与反馈
 
 模块不申请网络权限，配置仅涉及视觉外观。反馈时请提供 ChatGPT 版本、Android／LSPosed 版本、出现问题的页面和模块日志；截图请先遮挡个人信息。

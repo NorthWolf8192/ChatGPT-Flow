@@ -1,0 +1,138 @@
+name: Build ChatGPT Flow
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build and test debug APK
+        run: python3 build.py --debug
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ChatGPT-Flow-debug
+          path: dist/*/ChatGPT-Flow-*-debug.apk
+          if-no-files-found: error
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: chatgpt-flow-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check version and release status
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(awk '$1 == "versionName:" {print $2}' package/apktool.yml)
+          code=$(awk '$1 == "versionCode:" {print $2}' package/apktool.yml)
+          [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $code =~ ^[0-9]+$ ]]
+          tag="$code-$version"
+          existing=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" |
+            jq -cs --arg tag "$tag" 'map(.[]) | map(select(.tag_name == $tag)) | first // null')
+          if [[ $(jq -r '.draft' <<< "$existing") == false ]]; then
+            echo "Release $tag already exists." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [[ "$existing" != null ]] && [[ $(jq -r '.target_commitish' <<< "$existing") != "$GITHUB_SHA" ]]; then
+            echo "::error::Draft release $tag targets a different commit."
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "needed=true"
+            echo "draft_id=$(jq -r '.id // empty' <<< "$existing")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check signing configuration
+        if: steps.version.outputs.needed == 'true'
+        id: signing
+        env:
+          FLOW_KEYSTORE_BASE64: ${{ secrets.FLOW_KEYSTORE_BASE64 }}
+          FLOW_KEYSTORE_PASSWORD: ${{ secrets.FLOW_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z "$FLOW_KEYSTORE_BASE64" || -z "$FLOW_KEYSTORE_PASSWORD" ]]; then
+            echo "::warning::Formal release requires FLOW_KEYSTORE_BASE64 and FLOW_KEYSTORE_PASSWORD Actions secrets."
+            echo "Debug APK built. Set the signing secrets to enable the signed GitHub Release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: steps.signing.outputs.configured == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build and verify signed release APK
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          FLOW_KEYSTORE_BASE64: ${{ secrets.FLOW_KEYSTORE_BASE64 }}
+          FLOW_KEYSTORE_PASSWORD: ${{ secrets.FLOW_KEYSTORE_PASSWORD }}
+          FLOW_KEY_ALIAS: ${{ vars.FLOW_KEY_ALIAS || 'chatgptflow' }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_dir=$(mktemp -d)
+          trap 'rm -rf "$signing_dir"' EXIT
+          export FLOW_KEYSTORE="$signing_dir/release.jks"
+          export FLOW_KEYSTORE_PASSWORD_FILE="$signing_dir/password"
+          printf '%s' "$FLOW_KEYSTORE_BASE64" | base64 --decode > "$FLOW_KEYSTORE"
+          printf '%s' "$FLOW_KEYSTORE_PASSWORD" > "$FLOW_KEYSTORE_PASSWORD_FILE"
+          unset FLOW_KEYSTORE_BASE64 FLOW_KEYSTORE_PASSWORD
+          python3 build.py
+
+          apk="dist/$VERSION/ChatGPT-Flow-$VERSION.apk"
+          report=$(java -cp tools/signer.jar com.android.apksigner.ApkSignerTool verify --print-certs "$apk")
+          fingerprint=$(awk '/^Signer #[0-9]+ certificate SHA-256 digest:/ {print $NF}' <<< "$report")
+          if [[ "$fingerprint" != 5f66752cea58ee5c96f6b9058c7f00067a24207426e5fac9989d7206be3f69c7 ]]; then
+            echo "::error::The APK signing certificate does not match the published module."
+            exit 1
+          fi
+          (cd "dist/$VERSION" && sha256sum "ChatGPT-Flow-$VERSION.apk" > SHA256SUMS)
+      - name: Publish GitHub Release
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          DRAFT_ID: ${{ steps.version.outputs.draft_id }}
+        run: |
+          set -euo pipefail
+          tag_refs=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          tag_commit=$(awk 'END {print $1}' <<< "$tag_refs")
+          if [[ -n "$tag_commit" && "$tag_commit" != "$GITHUB_SHA" ]]; then
+            echo "::error::Tag $TAG points to a different commit."
+            exit 1
+          fi
+          if [[ -z "$DRAFT_ID" ]]; then
+            DRAFT_ID=$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" \
+              -f name="ChatGPT Flow $VERSION" -F draft=true -F generate_release_notes=true --jq .id)
+          fi
+          gh release upload "$TAG" "dist/$VERSION/ChatGPT-Flow-$VERSION.apk" "dist/$VERSION/SHA256SUMS" --clobber
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$DRAFT_ID" \
+            -F draft=false --jq .html_url >> "$GITHUB_STEP_SUMMARY"
