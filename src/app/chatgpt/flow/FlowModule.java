@@ -132,7 +132,7 @@ public final class FlowModule extends XposedModule {
                 return chain.proceed();
             });
             installLifecycleRecovery(loader);
-            log(4, TAG, "ChatGPT Flow 1.0.25 initialized for ChatGPT build " + symbols.build + " (API 102).");
+            log(4, TAG, "ChatGPT Flow 1.0.26 initialized for ChatGPT build " + symbols.build + " (API 102).");
         } catch (Throwable error) {
             log(6, TAG, "Unsupported ChatGPT build or missing Compose adapter", error);
         }
