@@ -393,14 +393,14 @@ final class GlassHooks {
         Class<?> function0=symbols.type("kotlin.jvm.functions.Function0");
         scope(symbols.method("nst","invoke",Object.class,Object.class),buildingConversationFooter,true);
         scope(symbols.method("dt51","invoke",Object.class,Object.class),buildingTopBar,true);
-        Method sidebarHeader = symbols.build == 2632100
+        Method sidebarHeader = symbols.uses321Signatures()
                 ? symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
                         symbols.type("ijn0"),symbols.type("j3c1"),modifier,modifier,composer,int.class)
                 : symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
                         symbols.type("ijn0"),symbols.type("j3c1"),modifier,composer,int.class);
         scope(sidebarHeader,buildingSidebarEdge,1);
         scope(symbols.method("v0v","invoke",Object.class,Object.class),buildingSidebarEdge,2);
-        Method settingsSearch = symbols.build == 2632100
+        Method settingsSearch = symbols.uses321Signatures()
                 ? symbols.method("grf1","e",symbols.type("x6z0"),symbols.type("xx91"),scroll,
                         symbols.type("zsa0"),symbols.type("om50"),function1,function0,modifier,composer,int.class)
                 : symbols.method("grf1","e",symbols.type("x6z0"),scroll,symbols.type("zsa0"),
@@ -408,7 +408,7 @@ final class GlassHooks {
         scope(settingsSearch,buildingSettingsSearch,true);
         scope(symbols.method("wnd0","invoke",Object.class,Object.class),buildingSettingsSearch,true);
         scope(symbols.method("g780","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
-        if (symbols.build == 2631428 || symbols.build == 2631431 || symbols.build == 2631432 || symbols.build == 2632100) {
+        if (symbols.build == 2631428 || symbols.build == 2631431 || symbols.build == 2631432 || symbols.uses321Signatures()) {
             scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class,
                     Object.class),buildingSettingsHeader,true);
         } else {
@@ -479,7 +479,7 @@ final class GlassHooks {
             try{return chain.proceed();}
             finally{if(previous==null)buildingModeRow.remove();else buildingModeRow.set(previous);}
         });
-        boolean reorderedIndicator = symbols.build == 2632100;
+        boolean reorderedIndicator = symbols.uses321Signatures();
         int rowModifier = reorderedIndicator ? 0 : 2;
         int selectionModifier = reorderedIndicator ? 1 : 3;
         int composerArgument = reorderedIndicator ? 2 : 1;
