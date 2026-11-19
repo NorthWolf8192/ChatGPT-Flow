@@ -580,7 +580,7 @@ final class GlassHooks {
         Class<?> pathType=symbols.type("sw2");
         Field nativePath=field(pathType,"a");
         Method convex=Path.class.getMethod("isConvex");
-        Method draw=wrapper.getDeclaredMethod("o",pathType,paint);
+        Method draw=symbols.method("ol2","o",pathType,paint);
         draw.setAccessible(true);
         module.glassHook(draw,chain->{
             boolean handled=false;
