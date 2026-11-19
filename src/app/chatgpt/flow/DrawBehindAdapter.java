@@ -24,7 +24,7 @@ interface DrawBehindAdapter {
                     throw new NoSuchMethodException("o500 is not a Modifier element");
                 }
                 Constructor<?> constructor = element.getDeclaredConstructor(callback);
-                Method then = modifier.getMethod("C", modifier);
+                Method then = modifier.getMethod(symbols.methodName("g5i0", "C"), modifier);
                 if (Modifier.isStatic(then.getModifiers()) || then.getReturnType() != modifier) {
                     throw new NoSuchMethodException("g5i0.C must append a Modifier");
                 }

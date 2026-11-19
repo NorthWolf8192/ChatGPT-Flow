@@ -86,7 +86,7 @@ final class GlassHooks {
         layout=field(coordinator,"u"); modifiers=symbols.field("androidx.compose.ui.node.LayoutNode","N1");
         layoutOwner=field(layoutNode,"o");
         parent=layoutNode.getDeclaredMethod("F"); parent.setAccessible(true);
-        position=coordinator.getDeclaredMethod("R",long.class);position.setAccessible(true);
+        position=symbols.method("qwj0","R",long.class);position.setAccessible(true);
         nodeCoordinator=symbols.method("kha0","a0",symbols.type("y6x"),int.class);
         nodeCoordinator.setAccessible(true);
         fold=modifier.getMethod("a",Object.class,function2);
@@ -117,7 +117,8 @@ final class GlassHooks {
             Object element=args[1];
             if(!element.getClass().getName().equals("io.sentry.compose.SentryModifier$SentryTagModifierNodeElement"))return false;
             if(tagField==null)tagField=field(element.getClass(),"tag");
-            return "OrbitNavigationBarScrim".equals(tagField.get(element));
+            return "OrbitNavigationBarScrim".equals(tagField.get(element))
+                    || "DotsNavigationBarScrim".equals(tagField.get(element));
         });
         inspectSettingsScope=Proxy.newProxyInstance(loader,new Class<?>[]{function2},(proxy,method,args)->{
             if(method.getDeclaringClass()==Object.class)return objectMethod(proxy,method,args);
@@ -392,14 +393,22 @@ final class GlassHooks {
         Class<?> function0=symbols.type("kotlin.jvm.functions.Function0");
         scope(symbols.method("nst","invoke",Object.class,Object.class),buildingConversationFooter,true);
         scope(symbols.method("dt51","invoke",Object.class,Object.class),buildingTopBar,true);
-        scope(symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
-                symbols.type("ijn0"),symbols.type("j3c1"),modifier,composer,int.class),buildingSidebarEdge,1);
+        Method sidebarHeader = symbols.build == 2632100
+                ? symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
+                        symbols.type("ijn0"),symbols.type("j3c1"),modifier,modifier,composer,int.class)
+                : symbols.method("t0u","l",symbols.type("yd01"),symbols.type("tpb0"),function1,
+                        symbols.type("ijn0"),symbols.type("j3c1"),modifier,composer,int.class);
+        scope(sidebarHeader,buildingSidebarEdge,1);
         scope(symbols.method("v0v","invoke",Object.class,Object.class),buildingSidebarEdge,2);
-        scope(symbols.method("grf1","e",symbols.type("x6z0"),scroll,symbols.type("zsa0"),
-                symbols.type("om50"),function1,function0,modifier,composer,int.class),buildingSettingsSearch,true);
+        Method settingsSearch = symbols.build == 2632100
+                ? symbols.method("grf1","e",symbols.type("x6z0"),symbols.type("xx91"),scroll,
+                        symbols.type("zsa0"),symbols.type("om50"),function1,function0,modifier,composer,int.class)
+                : symbols.method("grf1","e",symbols.type("x6z0"),scroll,symbols.type("zsa0"),
+                        symbols.type("om50"),function1,function0,modifier,composer,int.class);
+        scope(settingsSearch,buildingSettingsSearch,true);
         scope(symbols.method("wnd0","invoke",Object.class,Object.class),buildingSettingsSearch,true);
         scope(symbols.method("g780","invoke",Object.class,Object.class,Object.class,Object.class),buildingSettingsHeader,true);
-        if (symbols.build == 2631428 || symbols.build == 2631431 || symbols.build == 2631432) {
+        if (symbols.build == 2631428 || symbols.build == 2631431 || symbols.build == 2631432 || symbols.build == 2632100) {
             scope(symbols.method("yz6","invoke",Object.class,Object.class,Object.class,Object.class,
                     Object.class),buildingSettingsHeader,true);
         } else {
@@ -470,15 +479,20 @@ final class GlassHooks {
             try{return chain.proceed();}
             finally{if(previous==null)buildingModeRow.remove();else buildingModeRow.set(previous);}
         });
-        Method indicator=symbols.method("vb6","z",int.class,
-                symbols.type("p550"),modifier,modifier,boolean.class);
+        boolean reorderedIndicator = symbols.build == 2632100;
+        int rowModifier = reorderedIndicator ? 0 : 2;
+        int selectionModifier = reorderedIndicator ? 1 : 3;
+        int composerArgument = reorderedIndicator ? 2 : 1;
+        Method indicator = reorderedIndicator
+                ? symbols.method("vb6","z",modifier,modifier,symbols.type("p550"),int.class,boolean.class)
+                : symbols.method("vb6","z",int.class,symbols.type("p550"),modifier,modifier,boolean.class);
         indicator.setAccessible(true);
         module.glassHook(indicator,chain->{
             if(!Boolean.TRUE.equals(buildingModeRow.get())
-                    || ((Integer)fold.invoke(chain.getArg(2),0,inspectTags))!=GlassPolicy.SWITCH)return chain.proceed();
-            try{base=module.glassTheme(chain.getArg(1));}catch(Throwable error){module.glassError("Cannot read mode indicator theme",error);}
+                    || ((Integer)fold.invoke(chain.getArg(rowModifier),0,inspectTags))!=GlassPolicy.SWITCH)return chain.proceed();
+            try{base=module.glassTheme(chain.getArg(composerArgument));}catch(Throwable error){module.glassError("Cannot read mode indicator theme",error);}
             Object[] args=chain.getArgs().toArray();
-            args[3]=sentry.invoke(null,args[3],"FlowModeSelectionIndicator");
+            args[selectionModifier]=sentry.invoke(null,args[selectionModifier],"FlowModeSelectionIndicator");
             kinds.clear();
             return chain.proceed(args);
         });
@@ -489,7 +503,7 @@ final class GlassHooks {
         Class<?> fadeType=symbols.type("au00");
         Method fade=symbols.method("au00","W0",bridge);fade.setAccessible(true);
         Field direction=field(fadeType,"o"),extended=field(fadeType,"q");
-        Method metrics=fadeType.getDeclaredMethod("w1");metrics.setAccessible(true);
+        Method metrics=symbols.method("au00","w1");metrics.setAccessible(true);
         Class<?> metricType=symbols.type("vox0");
         Method reverse=metricType.getMethod("a"),startDistance=metricType.getMethod("c"),endDistance=metricType.getMethod("d");
         reverse.setAccessible(true);startDistance.setAccessible(true);endDistance.setAccessible(true);
