@@ -157,6 +157,22 @@ final class ComposeSymbols {
             "nbf1#c i2l1#a", "v0v a0w", "wnd0 dm60", "yz6#invoke gjd1#J", "zsa0 ire0",
             "om50 wi90", "c1c0#o ks91#l", "xx91 m4a1", "g780 ivn");
 
+    private static final Map<String, String> BUILD_2632128 = aliases(
+            "g5i0 r0o0", "g5i0#C r0o0#A", "a1q rqr", "k771 mec1", "pib0 x3h0",
+            "akf s9g", "yjf r9g", "f5i0 q0o0", "b600 o850", "wjf p9g",
+            "ec60 dib0", "qwj0 zup0", "qwj0#R zup0#Q", "ol2 mv2", "ol2#s mv2#q",
+            "ol2#o mv2#n", "ew2 l63", "sw2 a73", "y6x sdz", "p550 oba0",
+            "vox0 xl21", "x3t0#c m9j1#t", "isv0#a fss#h", "mut#f nuv#g", "cja0#x ix7#s",
+            "o500 d850", "bl7#F bq81#Q", "kha0#a0 ix7#J", "qwj0#e1 zup0#c1", "androidx.compose.ui.node.LayoutNode.N1 Q1",
+            "qod1#f hdl1#g", "qod1#d e1o0#invoke", "xwa acb", "ewj0 f1o0", "p4b qbb",
+            "t0u g1w", "t0u#l g1w#m", "yd01 fh51", "tpb0 wah0", "ijn0 qkr0",
+            "j3c1 cph1", "dt51 a1b1", "lqf0#J fss#N", "grf1#e akk1#c", "x6z0 b741",
+            "bu00 jx50", "au00 ix50", "au00#W0 ix50#W0", "au00#w1 ix50#v1", "vb6#z bqg#v",
+            "p5y0 m431", "r5y0 o431", "sz2#l p0k1#q", "yau xbw", "nt51 j1b1",
+            "ot51 k1b1", "xa01#f wd51#f", "kfi0 ico0", "fy91#f nad1#b", "nbf1#c i6l1#b",
+            "v0v b0w", "wnd0 nx30", "yz6#invoke t41#I", "zsa0 ate0", "om50 ek90",
+            "c1c0#o bq81#s", "xx91 o8a1", "io.sentry.compose.e io.sentry.compose.d", "nst usv", "g780 bxb");
+
     final int build;
     private final ClassLoader loader;
     private final Map<String, String> names;
@@ -168,6 +184,8 @@ final class ComposeSymbols {
     }
 
     static ComposeSymbols select(ClassLoader loader) throws ReflectiveOperationException {
+        ComposeSymbols build2632128 = new ComposeSymbols(loader, 2632128, BUILD_2632128);
+        if (build2632128.matches()) return build2632128;
         ComposeSymbols build2632116 = new ComposeSymbols(loader, 2632116, BUILD_2632116);
         if (build2632116.matches()) return build2632116;
         ComposeSymbols build2632100 = new ComposeSymbols(loader, 2632100, BUILD_2632100);
@@ -188,7 +206,7 @@ final class ComposeSymbols {
         if (build2630717.matches()) return build2630717;
         ComposeSymbols build2630718 = new ComposeSymbols(loader, 2630718, BUILD_2630718);
         if (build2630718.matches()) return build2630718;
-        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717, 2630718, 2631421, 2631424, 2631428, 2631431, 2631432, 2632100 or 2632116");
+        throw new ClassNotFoundException("No Compose mapping matched builds 2630709, 2630717, 2630718, 2631421, 2631424, 2631428, 2631431, 2631432, 2632100, 2632116 or 2632128");
     }
 
     boolean usesSharedGradient() {
@@ -196,7 +214,7 @@ final class ComposeSymbols {
     }
 
     boolean uses321Signatures() {
-        return build == 2632100 || build == 2632116;
+        return build == 2632100 || build == 2632116 || build == 2632128;
     }
 
     boolean hasAlias(String owner, String member) {
