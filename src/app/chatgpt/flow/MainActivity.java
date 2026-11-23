@@ -289,7 +289,7 @@ public final class MainActivity extends Activity {
         LinearLayout versions=card(parent);
         info(versions,"模块版本","1.0.28");divider(versions);
         info(versions,"适配 ChatGPT","1.2026.307 / 1.2026.314 / 1.2026.321");divider(versions);
-        info(versions,"构建版本","2630709 / 2630717 / 2630718 / 2631421 / 2631424 / 2631428 / 2631431 / 2631432 / 2632100 / 2632116 / 2632128");divider(versions);
+        info(versions,"构建版本","2630709 / 2630717 / 2630718 / 2631421 / 2631424 / 2631428 / 2631431 / 2631432 / 2632100 / 2632116 / 2632128 / 2632129");divider(versions);
         info(versions,"框架接口","LSPosed API 102");
         space(parent,22);TextView footer=label("FLOW WITH YOUR CONVERSATION",10,muted,true);footer.setGravity(Gravity.CENTER);parent.addView(footer);
     }
